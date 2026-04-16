@@ -1,0 +1,70 @@
+[project]
+name = "testcontainers-atproto"
+dynamic = ["version"]
+description = "Testcontainers module for AT Protocol PDS integration testing"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.9"
+authors = [
+    { name = "Emmanuel I. Obi", email = "withtwoemms@gmail.com" },
+]
+keywords = ["atproto", "bluesky", "pds", "testcontainers", "testing", "integration"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: Pytest",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Testing",
+]
+dependencies = [
+    "testcontainers>=4.0",
+    "httpx>=0.24",
+]
+
+[project.optional-dependencies]
+firehose = ["websockets>=12.0", "cbor2>=5.0"]
+sdk = ["atproto>=0.0.50"]
+all = ["testcontainers-atproto[firehose,sdk]"]
+test = [
+    "pytest>=7.0",
+    "coverage>=7.0",
+    "testcontainers-atproto[all]",
+]
+
+[project.entry-points.pytest11]
+testcontainers_atproto = "testcontainers_atproto.fixtures"
+
+[project.urls]
+Repository = "https://github.com/withtwoemms/testcontainers-atproto"
+Issues = "https://github.com/withtwoemms/testcontainers-atproto/issues"
+
+[build-system]
+requires = ["setuptools>=64", "setuptools_scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools_scm]
+# Version derived from git tags
+# no-local-version prevents +gXXXXXX suffixes that PyPI rejects
+local_scheme = "no-local-version"
+
+# -----------------------------------------------------------------------------
+# uv Configuration
+# -----------------------------------------------------------------------------
+
+[tool.uv]
+python-preference = "managed"
+cache-dir = ".uv_cache"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
