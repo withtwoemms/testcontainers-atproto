@@ -22,7 +22,7 @@ testcontainers-atproto is a testing infrastructure module for anyone building on
 |---------|-------|--------|
 | v0.0.0 | Package Scaffold | Complete |
 | v0.1.0 | Container Lifecycle + Account Creation | Complete |
-| v0.2.0 | XRPC Ergonomics | Planned |
+| v0.2.0 | XRPC Ergonomics | Complete |
 | v0.3.0 | Firehose Subscription | Planned |
 | v1.0.0 | Hermeticity + Federation | Planned |
 
@@ -73,21 +73,24 @@ testcontainers-atproto is a testing infrastructure module for anyone building on
 
 ---
 
-## v0.2.0 — XRPC Ergonomics (Planned)
+## v0.2.0 — XRPC Ergonomics (Complete)
 
 **Theme:** Low-level XRPC access and record operations.
 
-- [ ] `PDSContainer.xrpc_get(method, params, auth)` — authenticated GET with JSON response
-- [ ] `PDSContainer.xrpc_post(method, body, auth)` — authenticated POST with JSON response
-- [ ] `PDSContainer.health()` — convenience one-liner
-- [ ] `Account.create_record`, `get_record`, `list_records`, `delete_record`
-- [ ] `Account.put_record`, `upload_blob`, `strong_ref`, `refresh_session`
-- [ ] Typed `XrpcError` hierarchy for structured error handling
+- [x] `PDSContainer.xrpc_get(method, params, auth)` — authenticated GET with JSON response
+- [x] `PDSContainer.xrpc_post(method, data, auth, *, content, content_type)` — authenticated POST with JSON and raw byte payloads
+- [x] `PDSContainer.health()` — convenience one-liner
+- [x] `Account.create_record`, `get_record`, `list_records`, `delete_record`
+- [x] `Account.put_record`, `upload_blob`, `strong_ref`, `refresh_session`
+- [x] Typed `XrpcError` with `method`, `status_code`, `error`, `message` attributes
+- [x] `create_account` refactored to use `xrpc_post` — failures now raise `XrpcError`
+- [x] Integration tests for XRPC methods (`test_xrpc.py`) and record operations (`test_records.py`)
 
 **Outcomes:**
 - Downstream SDKs can delegate raw XRPC calls to testcontainers-atproto
 - Full CRUD lifecycle on ATP records available from `Account`
 - Error responses are structured and pattern-matchable
+- Blob upload supported via keyword-only `content`/`content_type` parameters on `xrpc_post`
 
 ---
 
