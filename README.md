@@ -38,6 +38,13 @@ with PDSContainer() as pds:
     print(account.handle)      # alice.test
 ```
 
+A local PLC directory runs alongside the PDS on a shared Docker network — no public internet required. For Postgres-backed PLC parity with production, pass `plc_mode="real"`:
+
+```python
+with PDSContainer(plc_mode="real") as pds:
+    account = pds.create_account("alice.test")
+```
+
 ---
 
 ## Pytest fixtures
