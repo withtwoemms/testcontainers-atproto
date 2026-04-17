@@ -38,6 +38,13 @@ with PDSContainer() as pds:
     print(account.handle)      # alice.test
 ```
 
+A local PLC directory runs alongside the PDS on a shared Docker network — no public internet required. For Postgres-backed PLC parity with production, pass `plc_mode="real"`:
+
+```python
+with PDSContainer(plc_mode="real") as pds:
+    account = pds.create_account("alice.test")
+```
+
 ---
 
 ## Pytest fixtures
@@ -67,6 +74,12 @@ source .testcontainers-atproto-3.12/bin/activate # Activate
 make test                                        # Run tests
 make test-all                                    # Run across all supported Python versions
 ```
+
+---
+
+## Glossary
+
+AT Protocol introduces many domain-specific terms. See [docs/glossary.md](./docs/glossary.md) for definitions of PDS, DID, PLC, XRPC, and other initialisms used in this project.
 
 ---
 

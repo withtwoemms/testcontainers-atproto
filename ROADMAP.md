@@ -21,7 +21,7 @@ testcontainers-atproto is a testing infrastructure module for anyone building on
 | Version | Theme | Status |
 |---------|-------|--------|
 | v0.0.0 | Package Scaffold | Complete |
-| v0.1.0 | Container Lifecycle + Account Creation | Up Next |
+| v0.1.0 | Container Lifecycle + Account Creation | Complete |
 | v0.2.0 | XRPC Ergonomics | Planned |
 | v0.3.0 | Firehose Subscription | Planned |
 | v1.0.0 | Hermeticity + Federation | Planned |
@@ -48,25 +48,28 @@ testcontainers-atproto is a testing infrastructure module for anyone building on
 
 ---
 
-## v0.1.0 — Container Lifecycle + Account Creation (Up Next)
+## v0.1.0 — Container Lifecycle + Account Creation (Complete)
 
 **Theme:** A running PDS you can create accounts on.
 
-- [ ] `PDSContainer` subclasses `DockerContainer` with auto-generated secrets
-- [ ] Container environment: `PDS_HOSTNAME`, `PDS_PORT`, `PDS_ADMIN_PASSWORD`, `PDS_JWT_SECRET`, `PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX`, and friends
-- [ ] Health-check wait in `__enter__` (poll `GET /xrpc/_health` until HTTP 200)
-- [ ] Container teardown in `__exit__`
-- [ ] `host`, `port`, `base_url`, and `admin_password` properties
-- [ ] `create_account(handle)` — invite code generation + account creation via XRPC
-- [ ] `Account.access_jwt` and `Account.refresh_jwt` public properties
-- [ ] Handle-domain resolution: determine the right `PDS_SERVICE_HANDLE_DOMAINS` for test handles
-- [ ] Docker-gated integration tests (`test_container.py`, `test_create_account.py`)
+- [x] `PDSContainer` subclasses `DockerContainer` with auto-generated secrets
+- [x] Container environment: `PDS_HOSTNAME`, `PDS_PORT`, `PDS_ADMIN_PASSWORD`, `PDS_JWT_SECRET`, `PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX`, and friends
+- [x] Health-check wait in `__enter__` (poll `GET /xrpc/_health` until HTTP 200)
+- [x] Container teardown in `__exit__`
+- [x] `host`, `port`, `base_url`, and `admin_password` properties
+- [x] `create_account(handle)` — invite code generation + account creation via XRPC
+- [x] `Account.access_jwt` and `Account.refresh_jwt` public properties
+- [x] Handle-domain resolution: `PDS_SERVICE_HANDLE_DOMAINS=".test"` for test handles
+- [x] Docker-gated integration tests (`test_container.py`, `test_create_account.py`)
+- [x] Local PLC directory on a shared Docker network — no public internet dependency (pulled forward from v1.0.0)
+- [x] `plc_mode` parameter: `"mock"` (default, in-memory PLC) or `"real"` (Postgres-backed PLC)
 
 **Outcomes:**
 - `with PDSContainer() as pds:` boots a real PDS and tears it down
 - `pds.create_account("alice.test")` returns an `Account` with `did`, `handle`, and `access_jwt`
 - Downstream consumers can write integration tests against a live PDS
 - Tests that require Docker are skipped gracefully in environments without it
+- DID registration is fully local — tests work in firewalled and air-gapped environments
 
 ---
 
@@ -111,13 +114,12 @@ testcontainers-atproto is a testing infrastructure module for anyone building on
 
 **Theme:** Fully isolated test environments.
 
-- [ ] Mock PLC directory — local PLC-compatible service replacing `https://plc.directory`
+- [x] ~~Mock PLC directory~~ — delivered in v0.1.0 (`plc_mode="mock"` and `plc_mode="real"`)
 - [ ] `did:web` account support — skip PLC round-trip for faster container boot
-- [ ] `pds_pair` federation validation — two containers resolving each other's records
+- [ ] `pds_pair` federation validation — two containers resolving each other's records via shared PLC
 - [ ] API audit and stability commitment
 
 **Outcomes:**
-- Zero external network dependencies during test runs
 - Federation scenarios testable with the `pds_pair` fixture
 - Stable API surface with semantic versioning commitment
 
