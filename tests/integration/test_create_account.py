@@ -92,6 +92,17 @@ class TestCreateAccount:
             assert account.did.startswith("did:plc:")
 
 
+class TestCreateAccountRealPLC:
+    """Account creation with Postgres-backed PLC directory."""
+
+    def test_create_account_with_real_plc(self):
+        with PDSContainer(plc_mode="real") as pds:
+            account = pds.create_account("alice.test")
+            assert account.did.startswith("did:plc:")
+            assert account.handle == "alice.test"
+            assert account.access_jwt
+
+
 class TestCreateAccountAdversarial:
     """Edge cases and error conditions for create_account."""
 

@@ -61,6 +61,16 @@ class TestPDSContainerLifecycle:
             assert resp.status_code in (400, 404, 501)
 
 
+class TestPDSContainerRealPLC:
+    """Container boots with a Postgres-backed PLC directory."""
+
+    def test_real_plc_mode_boots(self):
+        with PDSContainer(plc_mode="real") as pds:
+            resp = httpx.get(f"{pds.base_url}/xrpc/_health", timeout=5.0)
+            assert resp.status_code == 200
+            assert "version" in resp.json()
+
+
 class TestPDSContainerStubs:
     """Unimplemented methods raise NotImplementedError."""
 
