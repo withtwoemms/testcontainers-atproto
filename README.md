@@ -45,6 +45,50 @@ with PDSContainer(plc_mode="real") as pds:
     account = pds.create_account("alice.test")
 ```
 
+### Record operations
+
+```python
+with PDSContainer() as pds:
+    alice = pds.create_account("alice.test")
+
+    # Create
+    ref = alice.create_record("app.bsky.feed.post", {
+        "$type": "app.bsky.feed.post",
+        "text": "hello from testcontainers",
+        "createdAt": "2026-01-01T00:00:00Z",
+    })
+
+    # Read
+    record = alice.get_record("app.bsky.feed.post", ref.rkey)
+
+    # Update
+    alice.put_record("app.bsky.feed.post", ref.rkey, {
+        "$type": "app.bsky.feed.post",
+        "text": "updated text",
+        "createdAt": "2026-01-01T00:00:00Z",
+    })
+
+    # List & delete
+    records = alice.list_records("app.bsky.feed.post")
+    alice.delete_record("app.bsky.feed.post", ref.rkey)
+```
+
+### Error handling
+
+XRPC failures raise `XrpcError` with structured fields:
+
+```python
+from testcontainers_atproto import PDSContainer, XrpcError
+
+with PDSContainer() as pds:
+    try:
+        pds.create_account("alice.invalid")
+    except XrpcError as e:
+        print(e.status_code)  # 400
+        print(e.error)        # "InvalidHandle"
+        print(e.message)      # human-readable detail
+```
+
 ---
 
 ## Pytest fixtures
