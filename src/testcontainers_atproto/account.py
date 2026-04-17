@@ -44,6 +44,16 @@ class Account:
         """The account's handle."""
         return self._handle
 
+    @property
+    def access_jwt(self) -> str:
+        """The account's access JWT."""
+        return self._access_jwt
+
+    @property
+    def refresh_jwt(self) -> str:
+        """The account's refresh JWT."""
+        return self._refresh_jwt
+
     # --- Record Operations ---
 
     def create_record(

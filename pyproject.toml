@@ -72,3 +72,6 @@ cache-dir = ".uv_cache"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "requires_docker: mark test as requiring a running Docker daemon",
+]
