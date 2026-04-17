@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Initial package scaffold with src layout and `testcontainers_atproto` top-level module
+- `RecordRef` frozen dataclass with AT URI validation and `as_strong_ref()` helper
+- `PDSContainer`, `Account`, and `FirehoseSubscription` stubs (method bodies raise `NotImplementedError` pending Phase 1+ work)
+- Pytest fixtures (`pds`, `pds_module`, `pds_pair`, `pds_image`) auto-registered via the `pytest11` entry point
 - Makefile-driven dev workflow (venv, install, test, coverage, build, clean) modeled after the `ucon-tools` pattern, using `uv`
 - `setuptools_scm` with `local_scheme = "no-local-version"` for git-tag-derived versioning
 - `[tool.uv]` configuration pinning `python-preference = "managed"` and `cache-dir = ".uv_cache"`
