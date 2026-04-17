@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0]
+
+### Added
+
+- `PDSContainer.xrpc_get(method, params, auth)` — authenticated XRPC query (HTTP GET)
+- `PDSContainer.xrpc_post(method, data, auth, *, content, content_type)` — authenticated XRPC procedure (HTTP POST) with support for both JSON and raw byte payloads
+- `PDSContainer.health()` — convenience method returning PDS version info
+- `Account.create_record(collection, record, rkey=, validate=)` — create a record, returns `RecordRef`
+- `Account.get_record(collection, rkey)` — fetch a record's value
+- `Account.list_records(collection, limit=)` — list records in a collection
+- `Account.delete_record(collection, rkey)` — delete a record
+- `Account.put_record(collection, rkey, record)` — create or update (upsert), returns `RecordRef`
+- `Account.upload_blob(data, mime_type)` — upload binary data, returns blob reference
+- `Account.strong_ref(collection, rkey)` — fetch current `{uri, cid}` for a record
+- `Account.refresh_session()` — rotate access and refresh tokens
+- `XrpcError` exception with `method`, `status_code`, `error`, and `message` attributes for structured XRPC error handling
+
+### Changed
+
+- `create_account` now raises `XrpcError` instead of `httpx.HTTPStatusError` on failure
+
 ## [0.1.0]
 
 ### Added
@@ -39,6 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions `publish` workflow (main → Test PyPI, tags → Test+Prod PyPI + GitHub Release with changelog-extracted notes)
 
 <!-- Links -->
-[Unreleased]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.1.0...HEAD
+[Unreleased]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.2.0...HEAD
+[0.2.0]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.1.0...0.2.0
 [0.1.0]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.0.0...0.1.0
 [0.0.0]: https://github.com/withtwoemms/testcontainers-atproto/releases/tag/0.0.0
