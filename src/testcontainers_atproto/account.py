@@ -64,19 +64,46 @@ class Account:
         validate: bool = False,
     ) -> RecordRef:
         """Create a record in this account's repo."""
-        raise NotImplementedError
+        body: dict = {
+            "repo": self._did,
+            "collection": collection,
+            "record": record,
+            "validate": validate,
+        }
+        if rkey is not None:
+            body["rkey"] = rkey
+        resp = self._pds.xrpc_post(
+            "com.atproto.repo.createRecord",
+            data=body,
+            auth=self._access_jwt,
+        )
+        return RecordRef(uri=resp["uri"], cid=resp["cid"])
 
     def get_record(self, collection: str, rkey: str) -> dict:
         """Fetch a record's value from this account's repo."""
-        raise NotImplementedError
+        resp = self._pds.xrpc_get(
+            "com.atproto.repo.getRecord",
+            params={"repo": self._did, "collection": collection, "rkey": rkey},
+            auth=self._access_jwt,
+        )
+        return resp["value"]
 
     def list_records(self, collection: str, limit: int = 50) -> list[dict]:
         """List records in a collection in this account's repo."""
-        raise NotImplementedError
+        resp = self._pds.xrpc_get(
+            "com.atproto.repo.listRecords",
+            params={"repo": self._did, "collection": collection, "limit": limit},
+            auth=self._access_jwt,
+        )
+        return resp["records"]
 
     def delete_record(self, collection: str, rkey: str) -> None:
         """Delete a record from this account's repo."""
-        raise NotImplementedError
+        self._pds.xrpc_post(
+            "com.atproto.repo.deleteRecord",
+            data={"repo": self._did, "collection": collection, "rkey": rkey},
+            auth=self._access_jwt,
+        )
 
     def put_record(
         self,
@@ -85,18 +112,44 @@ class Account:
         record: dict,
     ) -> RecordRef:
         """Create or update a record (upsert)."""
-        raise NotImplementedError
+        resp = self._pds.xrpc_post(
+            "com.atproto.repo.putRecord",
+            data={
+                "repo": self._did,
+                "collection": collection,
+                "rkey": rkey,
+                "record": record,
+            },
+            auth=self._access_jwt,
+        )
+        return RecordRef(uri=resp["uri"], cid=resp["cid"])
 
     def upload_blob(self, data: bytes, mime_type: str) -> dict:
         """Upload a blob and return the blob reference."""
-        raise NotImplementedError
+        resp = self._pds.xrpc_post(
+            "com.atproto.repo.uploadBlob",
+            auth=self._access_jwt,
+            content=data,
+            content_type=mime_type,
+        )
+        return resp["blob"]
 
     # --- Convenience ---
 
     def strong_ref(self, collection: str, rkey: str) -> dict:
         """Get a strongRef dict for a record in this repo."""
-        raise NotImplementedError
+        resp = self._pds.xrpc_get(
+            "com.atproto.repo.getRecord",
+            params={"repo": self._did, "collection": collection, "rkey": rkey},
+            auth=self._access_jwt,
+        )
+        return {"uri": resp["uri"], "cid": resp["cid"]}
 
     def refresh_session(self) -> None:
         """Refresh the access token using the refresh token."""
-        raise NotImplementedError
+        resp = self._pds.xrpc_post(
+            "com.atproto.server.refreshSession",
+            auth=self._refresh_jwt,
+        )
+        self._access_jwt = resp["accessJwt"]
+        self._refresh_jwt = resp["refreshJwt"]

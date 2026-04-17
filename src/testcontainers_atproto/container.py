@@ -15,6 +15,7 @@ from testcontainers.core.network import Network
 from testcontainers.core.wait_strategies import ExecWaitStrategy, HttpWaitStrategy
 
 from testcontainers_atproto.account import Account
+from testcontainers_atproto.errors import _raise_for_xrpc_status
 
 if TYPE_CHECKING:
     from testcontainers_atproto.firehose import FirehoseSubscription
@@ -196,18 +197,15 @@ class PDSContainer(DockerContainer):
         invite_resp.raise_for_status()
         invite_code = invite_resp.json()["code"]
 
-        account_resp = httpx.post(
-            f"{self.base_url}/xrpc/com.atproto.server.createAccount",
-            json={
+        data = self.xrpc_post(
+            "com.atproto.server.createAccount",
+            data={
                 "handle": handle,
                 "email": email,
                 "password": password,
                 "inviteCode": invite_code,
             },
-            timeout=10.0,
         )
-        account_resp.raise_for_status()
-        data = account_resp.json()
 
         return Account(
             pds=self,
@@ -226,22 +224,61 @@ class PDSContainer(DockerContainer):
         auth: Optional[str] = None,
     ) -> dict:
         """Raw XRPC query (HTTP GET)."""
-        raise NotImplementedError
+        headers: dict[str, str] = {}
+        if auth is not None:
+            headers["Authorization"] = f"Bearer {auth}"
+        resp = httpx.get(
+            f"{self.base_url}/xrpc/{method}",
+            params=params,
+            headers=headers,
+            timeout=10.0,
+        )
+        _raise_for_xrpc_status(resp, method)
+        return resp.json()
 
     def xrpc_post(
         self,
         method: str,
         data: Optional[dict] = None,
         auth: Optional[str] = None,
+        *,
+        content: Optional[bytes] = None,
+        content_type: Optional[str] = None,
     ) -> dict:
-        """Raw XRPC procedure (HTTP POST)."""
-        raise NotImplementedError
+        """Raw XRPC procedure (HTTP POST).
+
+        For JSON payloads, pass *data*. For raw byte payloads (e.g. blob
+        upload), pass *content* and *content_type* instead.
+        """
+        headers: dict[str, str] = {}
+        if auth is not None:
+            headers["Authorization"] = f"Bearer {auth}"
+
+        if content is not None:
+            headers["Content-Type"] = content_type or "application/octet-stream"
+            resp = httpx.post(
+                f"{self.base_url}/xrpc/{method}",
+                content=content,
+                headers=headers,
+                timeout=10.0,
+            )
+        else:
+            resp = httpx.post(
+                f"{self.base_url}/xrpc/{method}",
+                json=data,
+                headers=headers,
+                timeout=10.0,
+            )
+        _raise_for_xrpc_status(resp, method)
+        return resp.json()
 
     # --- Health ---
 
     def health(self) -> dict:
         """Check PDS health. Returns ``{"version": "..."}``."""
-        raise NotImplementedError
+        resp = httpx.get(f"{self.base_url}/xrpc/_health", timeout=10.0)
+        resp.raise_for_status()
+        return resp.json()
 
     # --- Firehose ---
 

@@ -7,7 +7,7 @@
 import httpx
 import pytest
 
-from testcontainers_atproto import Account, PDSContainer
+from testcontainers_atproto import Account, PDSContainer, XrpcError
 
 pytestmark = pytest.mark.requires_docker
 
@@ -110,25 +110,25 @@ class TestCreateAccountAdversarial:
         """Creating two accounts with the same handle should fail."""
         with PDSContainer() as pds:
             pds.create_account("alice.test")
-            with pytest.raises(httpx.HTTPStatusError) as exc_info:
+            with pytest.raises(XrpcError) as exc_info:
                 pds.create_account("alice.test")
-            assert exc_info.value.response.status_code == 400
+            assert exc_info.value.status_code == 400
 
     def test_invalid_handle_domain_raises(self):
         """Handles not ending in .test are rejected by the PDS."""
         with PDSContainer() as pds:
-            with pytest.raises(httpx.HTTPStatusError):
+            with pytest.raises(XrpcError):
                 pds.create_account("alice.invalid")
 
     def test_empty_handle_raises(self):
         """An empty handle string is rejected."""
         with PDSContainer() as pds:
-            with pytest.raises(httpx.HTTPStatusError):
+            with pytest.raises(XrpcError):
                 pds.create_account("")
 
     def test_duplicate_email_raises(self):
         """Two accounts with the same email should fail."""
         with PDSContainer() as pds:
             pds.create_account("alice.test", email="shared@test.invalid")
-            with pytest.raises(httpx.HTTPStatusError):
+            with pytest.raises(XrpcError):
                 pds.create_account("bob.test", email="shared@test.invalid")

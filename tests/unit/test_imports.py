@@ -6,13 +6,14 @@
 
 import pytest
 
-from testcontainers_atproto import Account, PDSContainer, RecordRef
+from testcontainers_atproto import Account, PDSContainer, RecordRef, XrpcError
 
 
 def test_top_level_exports_are_classes():
     assert isinstance(Account, type)
     assert isinstance(PDSContainer, type)
     assert isinstance(RecordRef, type)
+    assert isinstance(XrpcError, type)
 
 
 def test_record_ref_parses_at_uri():

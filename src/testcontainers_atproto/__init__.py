@@ -8,12 +8,14 @@ from importlib.metadata import version as _pkg_version
 
 from testcontainers_atproto.account import Account
 from testcontainers_atproto.container import PDSContainer
+from testcontainers_atproto.errors import XrpcError
 from testcontainers_atproto.ref import RecordRef
 
 __all__ = [
     "Account",
     "PDSContainer",
     "RecordRef",
+    "XrpcError",
 ]
 
 #: Derived by setuptools_scm from the latest git tag at build time.

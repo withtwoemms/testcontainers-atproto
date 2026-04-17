@@ -74,21 +74,6 @@ class TestPDSContainerRealPLC:
 class TestPDSContainerStubs:
     """Unimplemented methods raise NotImplementedError."""
 
-    def test_xrpc_get_not_implemented(self):
-        with PDSContainer() as pds:
-            with pytest.raises(NotImplementedError):
-                pds.xrpc_get("com.atproto.server.describeServer")
-
-    def test_xrpc_post_not_implemented(self):
-        with PDSContainer() as pds:
-            with pytest.raises(NotImplementedError):
-                pds.xrpc_post("com.atproto.server.createSession")
-
-    def test_health_not_implemented(self):
-        with PDSContainer() as pds:
-            with pytest.raises(NotImplementedError):
-                pds.health()
-
     def test_subscribe_not_implemented(self):
         with PDSContainer() as pds:
             with pytest.raises(NotImplementedError):
