@@ -70,6 +70,12 @@ make test-all                                    # Run across all supported Pyth
 
 ---
 
+## Glossary
+
+AT Protocol introduces many domain-specific terms. See [docs/glossary.md](./docs/glossary.md) for definitions of PDS, DID, PLC, XRPC, and other initialisms used in this project.
+
+---
+
 ## License
 
 Apache-2.0. See [LICENSE](./LICENSE).
