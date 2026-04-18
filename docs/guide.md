@@ -15,9 +15,10 @@ Spin up ephemeral [PDS](./glossary.md) instances in your Python test suite. [Lex
 7. [Declarative Seeding](#declarative-seeding)
 8. [Firehose Subscription](#firehose-subscription)
 9. [Email Verification and Password Reset](#email-verification-and-password-reset)
-10. [Pytest Fixtures](#pytest-fixtures)
-11. [Error Handling](#error-handling)
-12. [API Reference](#api-reference)
+10. [Account Lifecycle and Admin Operations](#account-lifecycle-and-admin-operations)
+11. [Pytest Fixtures](#pytest-fixtures)
+12. [Error Handling](#error-handling)
+13. [API Reference](#api-reference)
 
 ---
 
@@ -538,6 +539,124 @@ with PDSContainer(email_mode="capture") as pds:
 | `reset_password(token, new_password)` | No | Complete reset with token from the email |
 
 Token extraction is the test author's responsibility. The PDS email format is version-dependent — tokens typically appear as `XXXXX-XXXXX` codes in the email body or as `?code=...` in URLs.
+
+---
+
+## Account Lifecycle and Admin Operations
+
+Test what happens when accounts are deactivated, deleted, or taken down by moderators. Account lifecycle methods use Bearer JWT auth (user-level actions), while admin operations use HTTP Basic auth (server-level actions).
+
+### Deactivate and activate
+
+```python
+with PDSContainer() as pds:
+    alice = pds.create_account("alice.test")
+
+    # Deactivate — account becomes inaccessible
+    alice.deactivate()
+
+    # Re-activate — access restored
+    alice.activate()
+
+    # Deactivate with a scheduled deletion date
+    alice.deactivate(delete_after="2099-01-01T00:00:00Z")
+    alice.activate()
+```
+
+### Check account status
+
+```python
+status = alice.check_account_status()
+assert status["activated"] is True
+assert status["validDid"] is True
+```
+
+The response includes: `activated`, `validDid`, `repoCommit`, `repoRev`, `repoBlocks`, `indexedRecords`, `privateStateValues`, `expectedBlobs`, `importedBlobs`.
+
+### Delete account
+
+Account deletion follows the same two-step pattern as password reset: request a token via email, then complete the deletion.
+
+```python
+with PDSContainer(email_mode="capture") as pds:
+    alice = pds.create_account("alice.test", password="s3cret")
+
+    # ... confirm email first ...
+
+    # 1. Request deletion token
+    alice.request_account_delete()
+
+    # 2. Retrieve the email and extract the token
+    message = pds.await_email(alice.email)
+    token = extract_token(message)  # your extraction logic
+
+    # 3. Delete permanently
+    alice.delete_account("s3cret", token)
+```
+
+### Account lifecycle methods
+
+| Method | Auth | Description |
+|--------|------|-------------|
+| `deactivate(delete_after=)` | Bearer JWT | Deactivate the account |
+| `activate()` | Bearer JWT | Re-activate a deactivated account |
+| `check_account_status()` | Bearer JWT | Query account status and repo stats |
+| `request_account_delete()` | Bearer JWT | Send deletion token email |
+| `delete_account(password, token)` | None | Permanently delete the account |
+
+### Admin raw XRPC
+
+For admin [XRPC](./glossary.md) methods not covered by helpers, use `admin_get` and `admin_post`. These work like `xrpc_get`/`xrpc_post` but use HTTP Basic auth with the admin password instead of Bearer JWT.
+
+```python
+# Query
+status = pds.admin_get(
+    "com.atproto.admin.getSubjectStatus",
+    params={"did": alice.did},
+)
+
+# Procedure
+invite = pds.admin_post(
+    "com.atproto.server.createInviteCode",
+    data={"useCount": 1},
+)
+```
+
+### Takedown and restore
+
+Admin moderation actions — take down an account to block access, restore to unblock:
+
+```python
+with PDSContainer() as pds:
+    alice = pds.create_account("alice.test")
+
+    # Takedown — blocks all access
+    pds.takedown(alice)
+
+    # Restore — unblocks access
+    pds.restore(alice)
+
+    # Query current status
+    status = pds.get_subject_status(alice)
+```
+
+### Invite code management
+
+```python
+pds.disable_invite_codes(accounts=[alice.did])
+pds.disable_invite_codes(codes=["invite-code-1"], accounts=[])
+```
+
+### Admin operations summary
+
+| Method | Description |
+|--------|-------------|
+| `admin_get(method, params=)` | Raw admin XRPC query (HTTP Basic auth) |
+| `admin_post(method, data=)` | Raw admin XRPC procedure (HTTP Basic auth) |
+| `takedown(account)` | Take down an account |
+| `restore(account)` | Restore a taken-down account |
+| `get_subject_status(account)` | Query admin status for an account |
+| `disable_invite_codes(codes=, accounts=)` | Disable invite codes |
 
 ---
 
