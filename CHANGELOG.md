@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Declarative Seeding added to ROADMAP with builder-pattern API design and work items
+- Seeding usage example added to README
+
+### Removed
+
+- Copyright headers removed from all source, test, and config files
+
 ## [0.3.0]
 
 ### Added
