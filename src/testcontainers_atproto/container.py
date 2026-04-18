@@ -24,6 +24,9 @@ _PLC_IMAGE = (
 _PLC_PORT = 2582
 _POSTGRES_IMAGE = "postgres:14-alpine"
 _POSTGRES_PORT = 5432
+_MAILPIT_IMAGE = "axllent/mailpit:v1.21"
+_MAILPIT_SMTP_PORT = 1025
+_MAILPIT_API_PORT = 8025
 
 
 class PDSContainer(DockerContainer):
@@ -39,6 +42,10 @@ class PDSContainer(DockerContainer):
         plc_mode: ``"mock"`` (default) uses an in-memory PLC — fast, no
             Postgres. ``"real"`` adds a Postgres-backed PLC for production
             parity.
+        email_mode: ``"none"`` (default) bypasses email verification.
+            ``"capture"`` starts a Mailpit companion container and routes
+            PDS emails through Mailpit for test retrieval via
+            :meth:`mailbox` and :meth:`await_email`.
     """
 
     def __init__(
@@ -47,6 +54,7 @@ class PDSContainer(DockerContainer):
         hostname: str = "localhost",
         admin_password: Optional[str] = None,
         plc_mode: str = "mock",
+        email_mode: str = "none",
     ) -> None:
         self._hostname = hostname
         self._admin_password = admin_password or secrets.token_hex(16)
@@ -102,6 +110,25 @@ class PDSContainer(DockerContainer):
         else:
             self._postgres = None
 
+        # --- Mailpit (capture mode only) ---
+
+        self._email_mode = email_mode
+
+        if email_mode == "capture":
+            self._mailpit: Optional[DockerContainer] = DockerContainer(
+                _MAILPIT_IMAGE,
+                _wait_strategy=(
+                    HttpWaitStrategy(_MAILPIT_API_PORT, "/api/v1/messages")
+                    .with_startup_timeout(30)
+                    .with_poll_interval(0.5)
+                ),
+            )
+            self._mailpit.with_network(self._plc_network)
+            self._mailpit.with_network_aliases("mailpit")
+            self._mailpit.with_exposed_ports(_MAILPIT_API_PORT)
+        else:
+            self._mailpit = None
+
         # --- PDS ---
 
         super().__init__(
@@ -120,6 +147,12 @@ class PDSContainer(DockerContainer):
         self.with_env("PDS_HOSTNAME", self._hostname)
         self.with_env("PDS_PORT", str(_INTERNAL_PORT))
         self.with_env("PDS_DEV_MODE", "true")
+        if email_mode == "capture":
+            self.with_env(
+                "PDS_EMAIL_SMTP_URL",
+                f"smtp://mailpit:{_MAILPIT_SMTP_PORT}",
+            )
+            self.with_env("PDS_EMAIL_FROM_ADDRESS", "noreply@pds.test")
         self.with_env("PDS_ADMIN_PASSWORD", self._admin_password)
         self.with_env("PDS_JWT_SECRET", self._jwt_secret)
         self.with_env("PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX", self._plc_rotation_key)
@@ -137,6 +170,8 @@ class PDSContainer(DockerContainer):
         if self._postgres is not None:
             self._postgres.start()
         self._plc.start()
+        if self._mailpit is not None:
+            self._mailpit.start()
         return super().start()
 
     def stop(self, force=True, delete_volume=True) -> None:
@@ -145,6 +180,8 @@ class PDSContainer(DockerContainer):
         self._plc.stop(force, delete_volume)
         if self._postgres is not None:
             self._postgres.stop(force, delete_volume)
+        if self._mailpit is not None:
+            self._mailpit.stop(force, delete_volume)
         self._plc_network.remove()
 
     # --- Properties ---
@@ -168,6 +205,80 @@ class PDSContainer(DockerContainer):
     def port(self) -> int:
         """Mapped port for the PDS (3000 inside, dynamic outside)."""
         return int(self.get_exposed_port(_INTERNAL_PORT))
+
+    @property
+    def email_mode(self) -> str:
+        """The email mode: ``"none"`` or ``"capture"``."""
+        return self._email_mode
+
+    # --- Email (capture mode) ---
+
+    def _mailpit_api_url(self) -> str:
+        """Mailpit HTTP API base URL (host-side)."""
+        if self._mailpit is None:
+            raise RuntimeError(
+                "Mailpit is not running. "
+                "Use email_mode='capture' to enable email capture."
+            )
+        port = self._mailpit.get_exposed_port(_MAILPIT_API_PORT)
+        host = self._mailpit.get_container_host_ip()
+        return f"http://{host}:{port}"
+
+    def mailbox(self, address: Optional[str] = None) -> list[dict]:
+        """Retrieve captured emails from Mailpit.
+
+        Requires ``email_mode="capture"``.
+
+        Args:
+            address: Optional recipient email address to filter by.
+
+        Returns:
+            List of message dicts from the Mailpit API.
+        """
+        url = self._mailpit_api_url()
+        if address is not None:
+            resp = httpx.get(
+                f"{url}/api/v1/search",
+                params={"query": f"to:{address}"},
+                timeout=10.0,
+            )
+        else:
+            resp = httpx.get(f"{url}/api/v1/messages", timeout=10.0)
+        resp.raise_for_status()
+        return resp.json().get("messages", [])
+
+    def await_email(
+        self,
+        address: str,
+        timeout: float = 10.0,
+        poll_interval: float = 0.5,
+    ) -> dict:
+        """Poll Mailpit until an email for *address* arrives.
+
+        Requires ``email_mode="capture"``.
+
+        Args:
+            address: Recipient email address to wait for.
+            timeout: Maximum seconds to wait.
+            poll_interval: Seconds between polls.
+
+        Returns:
+            The first matching message dict.
+
+        Raises:
+            TimeoutError: If no matching email arrives within *timeout*.
+        """
+        import time
+
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            messages = self.mailbox(address)
+            if messages:
+                return messages[0]
+            time.sleep(poll_interval)
+        raise TimeoutError(
+            f"No email for {address!r} arrived within {timeout}s."
+        )
 
     # --- Account Management ---
 
@@ -209,6 +320,7 @@ class PDSContainer(DockerContainer):
             handle=data["handle"],
             access_jwt=data["accessJwt"],
             refresh_jwt=data["refreshJwt"],
+            email=email,
         )
 
     # --- Raw XRPC ---
@@ -230,6 +342,8 @@ class PDSContainer(DockerContainer):
             timeout=10.0,
         )
         _raise_for_xrpc_status(resp, method)
+        if not resp.content:
+            return {}
         return resp.json()
 
     def xrpc_post(
@@ -266,6 +380,8 @@ class PDSContainer(DockerContainer):
                 timeout=10.0,
             )
         _raise_for_xrpc_status(resp, method)
+        if not resp.content:
+            return {}
         return resp.json()
 
     # --- Health ---

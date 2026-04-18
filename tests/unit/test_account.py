@@ -31,9 +31,17 @@ class TestAccountProperties:
     def test_refresh_jwt(self):
         assert self._make_account().refresh_jwt == "eyJ.refresh.token"
 
+    def test_email(self):
+        account = self._make_account(email="alice@test.invalid")
+        assert account.email == "alice@test.invalid"
+
+    def test_email_defaults_to_empty_string(self):
+        account = self._make_account()
+        assert account.email == ""
+
     def test_properties_are_readonly(self):
         account = self._make_account()
-        for attr in ("did", "handle", "access_jwt", "refresh_jwt"):
+        for attr in ("did", "handle", "access_jwt", "refresh_jwt", "email"):
             with pytest.raises(AttributeError):
                 setattr(account, attr, "overwritten")
 
