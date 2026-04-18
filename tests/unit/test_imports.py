@@ -7,6 +7,8 @@ from testcontainers_atproto import (
     FirehoseSubscription,
     PDSContainer,
     RecordRef,
+    Seed,
+    World,
     XrpcError,
 )
 
@@ -16,6 +18,8 @@ def test_top_level_exports_are_classes():
     assert isinstance(FirehoseSubscription, type)
     assert isinstance(PDSContainer, type)
     assert isinstance(RecordRef, type)
+    assert isinstance(Seed, type)
+    assert isinstance(World, type)
     assert isinstance(XrpcError, type)
 
 
