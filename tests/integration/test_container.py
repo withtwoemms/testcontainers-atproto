@@ -69,12 +69,3 @@ class TestPDSContainerRealPLC:
             resp = httpx.get(f"{pds.base_url}/xrpc/_health", timeout=5.0)
             assert resp.status_code == 200
             assert "version" in resp.json()
-
-
-class TestPDSContainerStubs:
-    """Unimplemented methods raise NotImplementedError."""
-
-    def test_subscribe_not_implemented(self):
-        with PDSContainer() as pds:
-            with pytest.raises(NotImplementedError):
-                pds.subscribe()

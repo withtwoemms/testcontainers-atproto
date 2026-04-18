@@ -286,5 +286,21 @@ class PDSContainer(DockerContainer):
         """Subscribe to ``com.atproto.sync.subscribeRepos``.
 
         Requires the ``firehose`` optional dependency group.
+        Install with: ``pip install testcontainers-atproto[firehose]``
         """
-        raise NotImplementedError
+        from testcontainers_atproto.firehose import (
+            FirehoseSubscription,
+            _HAS_FIREHOSE_DEPS,
+        )
+
+        if not _HAS_FIREHOSE_DEPS:
+            raise ImportError(
+                "Firehose support requires the 'firehose' extra. "
+                "Install it with: pip install testcontainers-atproto[firehose]"
+            )
+
+        ws_url = (
+            f"ws://{self.host}:{self.port}"
+            f"/xrpc/com.atproto.sync.subscribeRepos?cursor={cursor}"
+        )
+        return FirehoseSubscription(ws_url)

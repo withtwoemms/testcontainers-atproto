@@ -9,10 +9,12 @@ from importlib.metadata import version as _pkg_version
 from testcontainers_atproto.account import Account
 from testcontainers_atproto.container import PDSContainer
 from testcontainers_atproto.errors import XrpcError
+from testcontainers_atproto.firehose import FirehoseSubscription
 from testcontainers_atproto.ref import RecordRef
 
 __all__ = [
     "Account",
+    "FirehoseSubscription",
     "PDSContainer",
     "RecordRef",
     "XrpcError",

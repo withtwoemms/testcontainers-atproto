@@ -6,11 +6,18 @@
 
 import pytest
 
-from testcontainers_atproto import Account, PDSContainer, RecordRef, XrpcError
+from testcontainers_atproto import (
+    Account,
+    FirehoseSubscription,
+    PDSContainer,
+    RecordRef,
+    XrpcError,
+)
 
 
 def test_top_level_exports_are_classes():
     assert isinstance(Account, type)
+    assert isinstance(FirehoseSubscription, type)
     assert isinstance(PDSContainer, type)
     assert isinstance(RecordRef, type)
     assert isinstance(XrpcError, type)
