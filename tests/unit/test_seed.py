@@ -2,7 +2,12 @@
 
 import pytest
 
-from testcontainers_atproto.seed import Seed
+from testcontainers_atproto.seed import (
+    Seed,
+    _DidPlaceholder,
+    _RefPlaceholder,
+    _resolve_placeholders,
+)
 
 
 class TestSeedAccountDeclaration:
@@ -24,11 +29,28 @@ class TestSeedAccountDeclaration:
         result = builder.account("alice.test")
         assert result is builder
 
-    def test_duplicate_handle_raises(self):
+    def test_revisit_switches_context(self):
         builder = Seed(pds=None)
-        builder.account("alice.test")
-        with pytest.raises(ValueError, match="Duplicate account handle"):
-            builder.account("alice.test")
+        builder.account("alice.test").account("bob.test").account("alice.test")
+        assert builder._current_handle == "alice.test"
+
+    def test_revisit_does_not_duplicate_decl(self):
+        builder = Seed(pds=None)
+        builder.account("alice.test").account("bob.test").account("alice.test")
+        assert len(builder._account_decls) == 2
+
+    def test_revisit_interleaved_records(self):
+        builder = (
+            Seed(pds=None)
+            .account("alice.test")
+                .post("alice first")
+            .account("bob.test")
+                .post("bob first")
+            .account("alice.test")
+                .post("alice second")
+        )
+        handles = [d.handle for d in builder._record_decls]
+        assert handles == ["alice.test", "bob.test", "alice.test"]
 
     def test_multiple_accounts(self):
         builder = Seed(pds=None)
@@ -205,6 +227,123 @@ class TestSeedBlobDeclaration:
         builder = Seed(pds=None)
         with pytest.raises(ValueError, match="No account context"):
             builder.blob(b"data")
+
+
+class TestSeedDidPlaceholder:
+    """Seed.did() creates a DID placeholder."""
+
+    def test_returns_did_placeholder(self):
+        p = Seed.did("alice.test")
+        assert isinstance(p, _DidPlaceholder)
+        assert p.handle == "alice.test"
+
+    def test_placeholder_is_frozen(self):
+        p = Seed.did("alice.test")
+        with pytest.raises(AttributeError):
+            p.handle = "bob.test"
+
+    def test_placeholder_in_record_dict(self):
+        builder = Seed(pds=None)
+        builder.account("alice.test").account("bob.test").record(
+            "com.example.test",
+            {"performedBy": Seed.did("alice.test")},
+        )
+        rec = builder._record_decls[0].record
+        assert isinstance(rec["performedBy"], _DidPlaceholder)
+
+
+class TestSeedRefPlaceholder:
+    """Seed.ref() creates a record reference placeholder."""
+
+    def test_returns_ref_placeholder(self):
+        p = Seed.ref("alice.test", 0)
+        assert isinstance(p, _RefPlaceholder)
+        assert p.handle == "alice.test"
+        assert p.record_index == 0
+
+    def test_placeholder_is_frozen(self):
+        p = Seed.ref("alice.test", 0)
+        with pytest.raises(AttributeError):
+            p.handle = "bob.test"
+
+
+class TestResolvePlaceholders:
+    """_resolve_placeholders walks dicts and replaces sentinels."""
+
+    def _make_accounts(self):
+        """Minimal mock accounts dict."""
+        class _MockAccount:
+            def __init__(self, did):
+                self.did = did
+        return {"alice.test": _MockAccount("did:plc:alice")}
+
+    def _make_records(self):
+        """Minimal mock records dict."""
+        from testcontainers_atproto.ref import RecordRef
+        return {
+            "alice.test": [
+                RecordRef(uri="at://did:plc:alice/col/r1", cid="bafyabc"),
+            ],
+        }
+
+    def test_resolves_did_placeholder(self):
+        accounts = self._make_accounts()
+        result = _resolve_placeholders(
+            _DidPlaceholder("alice.test"), accounts, {},
+        )
+        assert result == "did:plc:alice"
+
+    def test_resolves_ref_placeholder(self):
+        accounts = self._make_accounts()
+        records = self._make_records()
+        result = _resolve_placeholders(
+            _RefPlaceholder("alice.test", 0), accounts, records,
+        )
+        assert result == {"uri": "at://did:plc:alice/col/r1", "cid": "bafyabc"}
+
+    def test_resolves_nested_dict(self):
+        accounts = self._make_accounts()
+        records = self._make_records()
+        obj = {
+            "performedBy": _DidPlaceholder("alice.test"),
+            "calibration": _RefPlaceholder("alice.test", 0),
+            "plain": "untouched",
+        }
+        result = _resolve_placeholders(obj, accounts, records)
+        assert result["performedBy"] == "did:plc:alice"
+        assert result["calibration"]["uri"] == "at://did:plc:alice/col/r1"
+        assert result["plain"] == "untouched"
+
+    def test_resolves_nested_list(self):
+        accounts = self._make_accounts()
+        result = _resolve_placeholders(
+            [_DidPlaceholder("alice.test"), "plain"],
+            accounts, {},
+        )
+        assert result == ["did:plc:alice", "plain"]
+
+    def test_deeply_nested(self):
+        accounts = self._make_accounts()
+        obj = {"outer": {"inner": [_DidPlaceholder("alice.test")]}}
+        result = _resolve_placeholders(obj, accounts, {})
+        assert result["outer"]["inner"][0] == "did:plc:alice"
+
+    def test_undeclared_did_raises(self):
+        with pytest.raises(ValueError, match="undeclared account"):
+            _resolve_placeholders(_DidPlaceholder("unknown.test"), {}, {})
+
+    def test_ref_out_of_range_raises(self):
+        accounts = self._make_accounts()
+        records = {"alice.test": []}
+        with pytest.raises(IndexError, match="record index 0"):
+            _resolve_placeholders(
+                _RefPlaceholder("alice.test", 0), accounts, records,
+            )
+
+    def test_passthrough_for_non_placeholder(self):
+        assert _resolve_placeholders(42, {}, {}) == 42
+        assert _resolve_placeholders("hello", {}, {}) == "hello"
+        assert _resolve_placeholders(None, {}, {}) is None
 
 
 class TestSeedChaining:

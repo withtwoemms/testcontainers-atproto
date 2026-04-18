@@ -12,6 +12,56 @@ if TYPE_CHECKING:
 
 
 # ---------------------------------------------------------------------------
+# Placeholders — resolved at apply() time
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class _DidPlaceholder:
+    """Placeholder that resolves to an account's DID at apply time."""
+
+    handle: str
+
+
+@dataclass(frozen=True)
+class _RefPlaceholder:
+    """Placeholder that resolves to a record's strong ref at apply time."""
+
+    handle: str
+    record_index: int
+
+
+def _resolve_placeholders(obj: object, accounts: dict, records: dict) -> object:
+    """Walk a nested dict/list and replace placeholders with resolved values."""
+    if isinstance(obj, _DidPlaceholder):
+        if obj.handle not in accounts:
+            raise ValueError(
+                f"Seed.did({obj.handle!r}) references an undeclared account."
+            )
+        return accounts[obj.handle].did
+    if isinstance(obj, _RefPlaceholder):
+        if obj.handle not in accounts:
+            raise ValueError(
+                f"Seed.ref({obj.handle!r}, {obj.record_index}) "
+                f"references an undeclared account."
+            )
+        handle_records = records[obj.handle]
+        if obj.record_index >= len(handle_records):
+            raise IndexError(
+                f"Seed.ref({obj.handle!r}, {obj.record_index}) references "
+                f"record index {obj.record_index}, but only "
+                f"{len(handle_records)} record(s) have been created so far "
+                f"for {obj.handle!r}."
+            )
+        return handle_records[obj.record_index].as_strong_ref()
+    if isinstance(obj, dict):
+        return {k: _resolve_placeholders(v, accounts, records) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_resolve_placeholders(v, accounts, records) for v in obj]
+    return obj
+
+
+# ---------------------------------------------------------------------------
 # Internal operation dataclasses
 # ---------------------------------------------------------------------------
 
@@ -101,15 +151,49 @@ class Seed:
             )
         return self._current_handle
 
+    # --- Placeholders ---
+
+    @staticmethod
+    def did(handle: str) -> _DidPlaceholder:
+        """Placeholder that resolves to an account's DID at apply time.
+
+        Use inside record dicts passed to :meth:`record`::
+
+            .record("my.lexicon", {
+                "performedBy": Seed.did("acme-lab.test"),
+            })
+        """
+        return _DidPlaceholder(handle=handle)
+
+    @staticmethod
+    def ref(handle: str, record_index: int) -> _RefPlaceholder:
+        """Placeholder that resolves to a record's strong ref at apply time.
+
+        Resolves to ``{"uri": ..., "cid": ...}`` for the *record_index*-th
+        record declared for *handle* (in declaration order).  The target
+        record must be declared before the record that references it.
+
+        ::
+
+            .record("my.lexicon", {
+                "calibrationRun": Seed.ref("fluke.test", 0),
+            })
+        """
+        return _RefPlaceholder(handle=handle, record_index=record_index)
+
     # --- Declaration methods ---
 
     def account(self, handle: str) -> Seed:
-        """Declare an account and switch builder context to it."""
-        if handle in self._seen_handles:
-            raise ValueError(f"Duplicate account handle: {handle!r}")
-        self._seen_handles.add(handle)
+        """Declare an account and switch builder context to it.
+
+        If the handle was already declared, switches context back to it
+        without creating a duplicate account.  This allows interleaving
+        records across accounts (e.g. conversation threads).
+        """
+        if handle not in self._seen_handles:
+            self._seen_handles.add(handle)
+            self._account_decls.append(_AccountDecl(handle=handle))
         self._current_handle = handle
-        self._account_decls.append(_AccountDecl(handle=handle))
         return self
 
     def post(self, text: str) -> Seed:
@@ -234,11 +318,14 @@ class Seed:
             blob_ref = accounts[decl.handle].upload_blob(decl.data, decl.mime_type)
             blobs[decl.handle].append(blob_ref)
 
-        # Phase 2b: records
+        # Phase 2b: records (resolve placeholders before each create)
         records: dict[str, list[RecordRef]] = {h: [] for h in accounts}
         for decl in self._record_decls:
+            resolved_record = _resolve_placeholders(
+                decl.record, accounts, records,
+            )
             ref = accounts[decl.handle].create_record(
-                decl.collection, decl.record, rkey=decl.rkey,
+                decl.collection, resolved_record, rkey=decl.rkey,
             )
             records[decl.handle].append(ref)
 
