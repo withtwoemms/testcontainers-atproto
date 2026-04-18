@@ -300,3 +300,13 @@ class PDSContainer(DockerContainer):
             f"/xrpc/com.atproto.sync.subscribeRepos?cursor={cursor}"
         )
         return FirehoseSubscription(ws_url)
+
+    def seed(self, spec: dict) -> "World":
+        """Materialize PDS state from a dict specification.
+
+        Convenience wrapper around
+        :func:`~testcontainers_atproto.seed.seed_from_dict`.
+        """
+        from testcontainers_atproto.seed import seed_from_dict
+
+        return seed_from_dict(self, spec)

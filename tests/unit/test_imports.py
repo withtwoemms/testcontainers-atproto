@@ -7,6 +7,8 @@ from testcontainers_atproto import (
     FirehoseSubscription,
     PDSContainer,
     RecordRef,
+    Seed,
+    World,
     XrpcError,
 )
 
@@ -16,16 +18,18 @@ def test_top_level_exports_are_classes():
     assert isinstance(FirehoseSubscription, type)
     assert isinstance(PDSContainer, type)
     assert isinstance(RecordRef, type)
+    assert isinstance(Seed, type)
+    assert isinstance(World, type)
     assert isinstance(XrpcError, type)
 
 
 def test_record_ref_parses_at_uri():
     ref = RecordRef(
-        uri="at://did:plc:abc123/dev.calico.certificate/3k4f5xyz",
+        uri="at://did:plc:abc123/com.example.record/3k4f5xyz",
         cid="bafyreiabc",
     )
     assert ref.did == "did:plc:abc123"
-    assert ref.collection == "dev.calico.certificate"
+    assert ref.collection == "com.example.record"
     assert ref.rkey == "3k4f5xyz"
 
 

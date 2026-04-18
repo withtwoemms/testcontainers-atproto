@@ -97,13 +97,12 @@ with PDSContainer() as pds:
 
 Requires the firehose extra: `pip install testcontainers-atproto[firehose]`
 
-### Seeding (planned)
+### Declarative seeding
 
-Declarative test state setup — describe the world, materialize it in one call:
+Describe the world, materialize it in one call — no boilerplate account/record setup:
 
 ```python
-from testcontainers_atproto import PDSContainer
-from testcontainers_atproto.seed import Seed
+from testcontainers_atproto import PDSContainer, Seed
 
 with PDSContainer() as pds:
     world = (
@@ -121,6 +120,53 @@ with PDSContainer() as pds:
     alice = world.accounts["alice.test"]
     bob = world.accounts["bob.test"]
     assert len(world.records["alice.test"]) == 2
+```
+
+Placeholders let custom records reference other accounts' DIDs and records — resolved at `apply()` time:
+
+```python
+with PDSContainer() as pds:
+    world = (
+        Seed(pds)
+        .account("alice.test")
+            .record("com.example.project", {
+                "$type": "com.example.project",
+                "name": "My Project",
+            })
+        .account("bob.test")
+            .record("com.example.review", {
+                "$type": "com.example.review",
+                "reviewer": Seed.did("bob.test"),
+                "project": Seed.ref("alice.test", 0),
+            })
+        .apply()
+    )
+```
+
+Accounts can be revisited to interleave records (e.g. conversation threads):
+
+```python
+world = (
+    Seed(pds)
+    .account("alice.test")
+        .post("alice first")
+    .account("bob.test")
+        .post("bob replies")
+    .account("alice.test")
+        .post("alice continues")
+    .apply()
+)
+```
+
+Also available as a dict-based API for data-driven fixtures:
+
+```python
+world = pds.seed({
+    "accounts": [
+        {"handle": "alice.test", "posts": ["Hello from Alice"]},
+        {"handle": "bob.test", "follows": ["alice.test"]},
+    ],
+})
 ```
 
 ### Error handling
