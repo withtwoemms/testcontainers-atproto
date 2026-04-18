@@ -97,6 +97,32 @@ with PDSContainer() as pds:
 
 Requires the firehose extra: `pip install testcontainers-atproto[firehose]`
 
+### Seeding (planned)
+
+Declarative test state setup — describe the world, materialize it in one call:
+
+```python
+from testcontainers_atproto import PDSContainer
+from testcontainers_atproto.seed import Seed
+
+with PDSContainer() as pds:
+    world = (
+        Seed(pds)
+        .account("alice.test")
+            .post("Hello from Alice")
+            .post("Another post")
+        .account("bob.test")
+            .post("Bob's first post")
+            .follow("alice.test")
+            .like("alice.test", 0)   # like Alice's first post
+        .apply()
+    )
+
+    alice = world.accounts["alice.test"]
+    bob = world.accounts["bob.test"]
+    assert len(world.records["alice.test"]) == 2
+```
+
 ### Error handling
 
 XRPC failures raise `XrpcError` with structured fields:
