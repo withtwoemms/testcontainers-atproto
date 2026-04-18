@@ -24,10 +24,10 @@ testcontainers-atproto is a testing infrastructure module for anyone building on
 | v0.1.0 | Container Lifecycle + Account Creation | Complete |
 | v0.2.0 | XRPC Ergonomics | Complete |
 | v0.3.0 | Firehose Subscription | Complete |
-| v0.4.0 | Email Verification + Password Reset | Planned |
-| v0.5.0 | Account Lifecycle + Admin Operations | Planned |
-| v0.6.0 | Repo Sync | Planned |
-| v0.7.0 | Declarative Seeding | Planned |
+| v0.4.0 | Declarative Seeding | Planned |
+| v0.5.0 | Email Verification + Password Reset | Planned |
+| v0.6.0 | Account Lifecycle + Admin Operations | Planned |
+| v0.7.0 | Repo Sync | Planned |
 | v1.0.0 | Hermeticity + Federation | Planned |
 
 ---
@@ -119,7 +119,30 @@ testcontainers-atproto is a testing infrastructure module for anyone building on
 
 ---
 
-## v0.4.0 — Email Verification + Password Reset (Planned)
+## v0.4.0 — Declarative Seeding (Planned)
+
+**Theme:** Reduce boilerplate by describing test state declaratively.
+
+Integration tests that need a populated PDS — multiple accounts, posts, follows, likes, blobs — repeat dozens of imperative API calls before the first assertion. This release introduces a seeding API that lets test authors describe the desired world state and materialize it in one call.
+
+- [ ] `Seed` builder class — fluent API for declaring accounts, records, social graph edges (follows, likes, reposts), and blobs
+- [ ] `Seed.apply()` — materialize the declared state against a running `PDSContainer`, returning a `World` object
+- [ ] `World` result object — maps handles to `Account` instances and ordered lists of `RecordRef`s for cross-account assertions
+- [ ] Dependency-ordered creation: accounts first, then records, then interactions that reference other accounts' records
+- [ ] Cross-account references: `like("alice.test", 0)` resolves to Alice's first record URI automatically
+- [ ] Dict-based alternative: `pds.seed({...})` accepting a plain dict/JSON description for data-driven and YAML-loaded fixtures
+- [ ] Support for custom Lexicon collections — not limited to `app.bsky.*`
+- [ ] Integration tests: seed a multi-account social graph, verify record counts, verify cross-account references resolve correctly
+
+**Outcomes:**
+- Test setup for feed generators drops from 50+ lines of imperative calls to a single declarative block
+- Indexer and relay tests can spin up reproducible, complex PDS states without fragile setup code
+- SDK authors can define reusable seed fixtures across their test suites
+- CI pipelines benefit from deterministic, self-documenting test data
+
+---
+
+## v0.5.0 — Email Verification + Password Reset (Planned)
 
 **Theme:** Hermetic email capture for account lifecycle flows.
 
@@ -145,7 +168,7 @@ Today, `PDS_DEV_MODE=true` silently bypasses email verification. Production PDS 
 
 ---
 
-## v0.5.0 — Account Lifecycle + Admin Operations (Planned)
+## v0.6.0 — Account Lifecycle + Admin Operations (Planned)
 
 **Theme:** Account state changes and moderation primitives.
 
@@ -167,7 +190,7 @@ Production apps must handle accounts that are deactivated, deleted, or taken dow
 
 ---
 
-## v0.6.0 — Repo Sync (Planned)
+## v0.7.0 — Repo Sync (Planned)
 
 **Theme:** Repository export and blob retrieval for data consumption pipelines.
 
@@ -183,29 +206,6 @@ The firehose (v0.3.0) provides incremental event notification. Repo sync provide
 - Relay and indexer developers can test full backfill pipelines: `getRepo` → parse CAR → verify records
 - Blob storage integrations can verify round-trip fidelity
 - The two data consumption patterns (firehose for incremental, sync for full-state) are both testable in isolation
-
----
-
-## v0.7.0 — Declarative Seeding (Planned)
-
-**Theme:** Reduce boilerplate by describing test state declaratively.
-
-Integration tests that need a populated PDS — multiple accounts, posts, follows, likes, blobs — repeat dozens of imperative API calls before the first assertion. This release introduces a seeding API that lets test authors describe the desired world state and materialize it in one call.
-
-- [ ] `Seed` builder class — fluent API for declaring accounts, records, social graph edges (follows, likes, reposts), and blobs
-- [ ] `Seed.apply()` — materialize the declared state against a running `PDSContainer`, returning a `World` object
-- [ ] `World` result object — maps handles to `Account` instances and ordered lists of `RecordRef`s for cross-account assertions
-- [ ] Dependency-ordered creation: accounts first, then records, then interactions that reference other accounts' records
-- [ ] Cross-account references: `like("alice.test", 0)` resolves to Alice's first record URI automatically
-- [ ] Dict-based alternative: `pds.seed({...})` accepting a plain dict/JSON description for data-driven and YAML-loaded fixtures
-- [ ] Support for custom Lexicon collections — not limited to `app.bsky.*`
-- [ ] Integration tests: seed a multi-account social graph, verify record counts, verify cross-account references resolve correctly
-
-**Outcomes:**
-- Test setup for feed generators drops from 50+ lines of imperative calls to a single declarative block
-- Indexer and relay tests can spin up reproducible, complex PDS states without fragile setup code
-- SDK authors can define reusable seed fixtures across their test suites
-- CI pipelines benefit from deterministic, self-documenting test data
 
 ---
 
