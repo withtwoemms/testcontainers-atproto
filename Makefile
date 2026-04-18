@@ -23,6 +23,8 @@ help:
 	@echo "  ${CYAN}install${RESET}           - Install package with all extras"
 	@echo "  ${CYAN}install-test${RESET}      - Install with test dependencies only"
 	@echo "  ${CYAN}test${RESET}              - Run tests (PYTHON=X.Y for specific version)"
+	@echo "  ${CYAN}test-unit${RESET}         - Run unit tests only (no Docker required)"
+	@echo "  ${CYAN}test-integration${RESET}  - Run integration tests only (Docker required)"
 	@echo "  ${CYAN}test-all${RESET}          - Run tests across all supported Python versions"
 	@echo "  ${CYAN}coverage${RESET}          - Generate coverage report"
 	@echo "  ${CYAN}build${RESET}             - Build source and wheel distributions"
@@ -85,6 +87,16 @@ else
 	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} -m pytest \
 		$(if $(TESTNAME),$(TESTNAME),${TESTDIR}) -q
 endif
+
+.PHONY: test-unit
+test-unit: ${DEPS_INSTALLED}
+	@echo "${GREEN}Running unit tests with Python ${PYTHON}...${RESET}"
+	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} -m pytest tests/unit/ -q
+
+.PHONY: test-integration
+test-integration: ${DEPS_INSTALLED}
+	@echo "${GREEN}Running integration tests with Python ${PYTHON}...${RESET}"
+	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} -m pytest tests/integration/ -q
 
 .PHONY: test-all
 test-all: ${UV_INSTALLED}

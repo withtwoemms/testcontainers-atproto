@@ -21,12 +21,14 @@ class Account:
         handle: str,
         access_jwt: str,
         refresh_jwt: str,
+        email: str = "",
     ) -> None:
         self._pds = pds
         self._did = did
         self._handle = handle
         self._access_jwt = access_jwt
         self._refresh_jwt = refresh_jwt
+        self._email = email
 
     # --- Properties ---
 
@@ -49,6 +51,11 @@ class Account:
     def refresh_jwt(self) -> str:
         """The account's refresh JWT."""
         return self._refresh_jwt
+
+    @property
+    def email(self) -> str:
+        """The account's email address."""
+        return self._email
 
     # --- Record Operations ---
 
@@ -149,3 +156,55 @@ class Account:
         )
         self._access_jwt = resp["accessJwt"]
         self._refresh_jwt = resp["refreshJwt"]
+
+    # --- Email Verification ---
+
+    def request_email_confirmation(self) -> None:
+        """Request a confirmation email for this account.
+
+        The PDS sends a verification email to the account's address.
+        Retrieve it via ``pds.mailbox()`` or ``pds.await_email()``.
+
+        Requires ``email_mode="capture"`` on the :class:`PDSContainer`.
+        """
+        self._pds.xrpc_post(
+            "com.atproto.server.requestEmailConfirmation",
+            auth=self._access_jwt,
+        )
+
+    def confirm_email(self, token: str) -> None:
+        """Confirm email ownership using a token from the verification email.
+
+        Args:
+            token: The verification token extracted from the email.
+        """
+        self._pds.xrpc_post(
+            "com.atproto.server.confirmEmail",
+            data={"email": self._email, "token": token},
+            auth=self._access_jwt,
+        )
+
+    def request_password_reset(self) -> None:
+        """Request a password reset email for this account.
+
+        The PDS sends a reset email to the account's address.
+        Retrieve it via ``pds.mailbox()`` or ``pds.await_email()``.
+
+        Requires ``email_mode="capture"`` on the :class:`PDSContainer`.
+        """
+        self._pds.xrpc_post(
+            "com.atproto.server.requestPasswordReset",
+            data={"email": self._email},
+        )
+
+    def reset_password(self, token: str, new_password: str) -> None:
+        """Reset the account password using a token from the reset email.
+
+        Args:
+            token: The reset token extracted from the email.
+            new_password: The new password to set.
+        """
+        self._pds.xrpc_post(
+            "com.atproto.server.resetPassword",
+            data={"token": token, "password": new_password},
+        )

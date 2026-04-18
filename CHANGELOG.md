@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0]
+
+### Added
+
+- `email_mode` parameter on `PDSContainer`: `"none"` (default) or `"capture"` — capture mode starts a Mailpit companion container on the shared Docker network and configures PDS SMTP to route emails through it
+- `PDSContainer.mailbox(address=)` — query captured emails from Mailpit, optionally filtered by recipient address
+- `PDSContainer.await_email(address, timeout, poll_interval)` — poll Mailpit until an email for the given address arrives
+- `PDSContainer.email_mode` read-only property
+- `Account.email` read-only property — stores the email address used during account creation
+- `Account.request_email_confirmation()` — trigger `com.atproto.server.requestEmailConfirmation`
+- `Account.confirm_email(token)` — confirm email ownership via `com.atproto.server.confirmEmail`
+- `Account.request_password_reset()` — trigger `com.atproto.server.requestPasswordReset`
+- `Account.reset_password(token, new_password)` — complete password reset via `com.atproto.server.resetPassword`
+- Mailpit container lifecycle managed by `PDSContainer.start()` and `stop()`
+- Integration tests: email verification flow, password reset flow, mailbox filtering, timeout behavior
+- `test-unit` and `test-integration` Makefile targets for running tests by scope
+
+### Fixed
+
+- `xrpc_get` and `xrpc_post` now return `{}` for XRPC methods that return empty bodies instead of raising `JSONDecodeError`
+
 ## [0.4.0]
 
 ### Added
@@ -95,7 +116,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions `publish` workflow (main → Test PyPI, tags → Test+Prod PyPI + GitHub Release with changelog-extracted notes)
 
 <!-- Links -->
-[Unreleased]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.4.0...HEAD
+[Unreleased]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.5.0...HEAD
+[0.5.0]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.4.0...0.5.0
 [0.4.0]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.3.0...0.4.0
 [0.3.0]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.2.0...0.3.0
 [0.2.0]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.1.0...0.2.0

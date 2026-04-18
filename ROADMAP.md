@@ -25,7 +25,7 @@ testcontainers-atproto is a testing infrastructure module for anyone building on
 | v0.2.0 | XRPC Ergonomics | Complete |
 | v0.3.0 | Firehose Subscription | Complete |
 | v0.4.0 | Declarative Seeding | Complete |
-| v0.5.0 | Email Verification + Password Reset | Planned |
+| v0.5.0 | Email Verification + Password Reset | Complete |
 | v0.6.0 | Account Lifecycle + Admin Operations | Planned |
 | v0.7.0 | Repo Sync | Planned |
 | v1.0.0 | Hermeticity + Federation | Planned |
@@ -147,23 +147,24 @@ Integration tests that need a populated PDS — multiple accounts, posts, follow
 
 ---
 
-## v0.5.0 — Email Verification + Password Reset (Planned)
+## v0.5.0 — Email Verification + Password Reset (Complete)
 
 **Theme:** Hermetic email capture for account lifecycle flows.
 
-Today, `PDS_DEV_MODE=true` silently bypasses email verification. Production PDS instances require verified email for account activation and use email for password reset. This release adds a local SMTP server so tests can exercise these flows end-to-end without touching real email infrastructure.
+Today, `PDS_DEV_MODE=true` silently bypasses email verification. This release adds a local Mailpit SMTP server so tests can exercise email verification and password reset flows end-to-end without touching real email infrastructure.
 
-- [ ] Mailpit companion container on the shared Docker network — lightweight SMTP server with an HTTP API for querying captured messages
-- [ ] `email_mode` parameter on `PDSContainer`: `"none"` (default, current behavior) or `"capture"` (starts Mailpit, configures `PDS_EMAIL_SMTP_URL` and `PDS_EMAIL_FROM_ADDRESS`)
-- [ ] PDS configured with `PDS_DEV_MODE=false` when `email_mode="capture"` — email verification enforced, matching production behavior
-- [ ] `PDSContainer.mailbox(address=)` — query captured emails, optionally filtered by recipient address
-- [ ] `PDSContainer.await_email(address, timeout)` — poll for an email matching the given address, returning the message when it arrives
-- [ ] Email-verified account activation flow: `create_account` → capture verification email → extract token → confirm email via XRPC
-- [ ] `Account.request_password_reset()` — trigger `com.atproto.server.requestPasswordReset`
-- [ ] Password reset flow: request reset → capture email → extract token → complete reset via `com.atproto.server.resetPassword`
-- [ ] Mailpit container health-check wait strategy
-- [ ] Mailpit teardown in `PDSContainer.stop()`
-- [ ] Integration tests: full activation flow, full password reset flow, mailbox filtering, timeout behavior
+- [x] Mailpit companion container on the shared Docker network — lightweight SMTP server with an HTTP API for querying captured messages
+- [x] `email_mode` parameter on `PDSContainer`: `"none"` (default, current behavior) or `"capture"` (starts Mailpit, configures `PDS_EMAIL_SMTP_URL` and `PDS_EMAIL_FROM_ADDRESS`)
+- [x] `PDSContainer.mailbox(address=)` — query captured emails, optionally filtered by recipient address
+- [x] `PDSContainer.await_email(address, timeout)` — poll for an email matching the given address, returning the message when it arrives
+- [x] `Account.email` read-only property — stores the email address used during account creation
+- [x] `Account.request_email_confirmation()` and `Account.confirm_email(token)` — email verification flow
+- [x] `Account.request_password_reset()` and `Account.reset_password(token, new_password)` — password reset flow
+- [x] Mailpit container health-check wait strategy
+- [x] Mailpit teardown in `PDSContainer.stop()`
+- [x] `xrpc_get` and `xrpc_post` handle empty response bodies gracefully
+- [x] Integration tests: full email verification flow, full password reset flow, mailbox filtering, timeout behavior
+- [x] `test-unit` and `test-integration` Makefile targets
 
 **Outcomes:**
 - Account onboarding tests can verify the complete activation path — from sign-up through email verification to authenticated session
