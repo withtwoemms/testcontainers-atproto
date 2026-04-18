@@ -97,13 +97,12 @@ with PDSContainer() as pds:
 
 Requires the firehose extra: `pip install testcontainers-atproto[firehose]`
 
-### Seeding (planned)
+### Declarative seeding
 
-Declarative test state setup — describe the world, materialize it in one call:
+Describe the world, materialize it in one call — no boilerplate account/record setup:
 
 ```python
-from testcontainers_atproto import PDSContainer
-from testcontainers_atproto.seed import Seed
+from testcontainers_atproto import PDSContainer, Seed
 
 with PDSContainer() as pds:
     world = (
@@ -121,6 +120,17 @@ with PDSContainer() as pds:
     alice = world.accounts["alice.test"]
     bob = world.accounts["bob.test"]
     assert len(world.records["alice.test"]) == 2
+```
+
+Also available as a dict-based API for data-driven fixtures:
+
+```python
+world = pds.seed({
+    "accounts": [
+        {"handle": "alice.test", "posts": ["Hello from Alice"]},
+        {"handle": "bob.test", "follows": ["alice.test"]},
+    ],
+})
 ```
 
 ### Error handling
