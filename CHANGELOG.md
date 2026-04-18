@@ -14,11 +14,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Seed` fluent builder for declarative PDS test state — chain `.account()`, `.post()`, `.record()`, `.follow()`, `.like()`, `.repost()`, `.blob()` calls and materialize with `.apply()`
 - `World` frozen dataclass returned by `Seed.apply()` — maps handles to `Account` instances, ordered `RecordRef` lists, and blob references
 - Cross-account reference resolution: `.like("alice.test", 0)` resolves to Alice's first record URI automatically during `apply()`
+- `Seed.did(handle)` — placeholder that resolves to an account's DID at `apply()` time, for embedding DIDs in custom record dicts
+- `Seed.ref(handle, index)` — placeholder that resolves to a record's `{uri, cid}` strong ref at `apply()` time, for cross-record references in custom Lexicons
+- Recursive placeholder resolution: `_resolve_placeholders()` walks nested dicts and lists in record payloads before each `create_record()` call
+- Account revisiting: calling `.account(handle)` on an already-declared handle switches context back without creating a duplicate — enables interleaving records across accounts (e.g. conversation threads, mutual attestations)
 - Three-phase execution in `apply()`: accounts first, then blobs and records, then interactions (follows, likes, reposts)
 - `seed_from_dict(pds, spec)` — dict-based alternative for data-driven and YAML-loaded fixtures
 - `PDSContainer.seed(spec)` — convenience wrapper for `seed_from_dict`
 - Support for custom Lexicon collections via `.record(collection, record, rkey=)` — not limited to `app.bsky.*`
-- Eager validation: duplicate handles, undeclared targets, and missing account context raise at declaration time
+- Eager validation: undeclared targets and missing account context raise at declaration time
 - `Seed` and `World` added to top-level package exports
 
 ### Removed
