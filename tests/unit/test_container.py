@@ -30,3 +30,25 @@ class TestEmailModeParameter:
         pds._mailpit = None
         with pytest.raises(RuntimeError, match="Mailpit is not running"):
             pds.await_email("alice@test.invalid")
+
+
+class TestAdminMethods:
+    """PDSContainer exposes admin methods (no Docker needed)."""
+
+    def test_has_admin_get(self):
+        assert callable(getattr(PDSContainer, "admin_get", None))
+
+    def test_has_admin_post(self):
+        assert callable(getattr(PDSContainer, "admin_post", None))
+
+    def test_has_takedown(self):
+        assert callable(getattr(PDSContainer, "takedown", None))
+
+    def test_has_restore(self):
+        assert callable(getattr(PDSContainer, "restore", None))
+
+    def test_has_get_subject_status(self):
+        assert callable(getattr(PDSContainer, "get_subject_status", None))
+
+    def test_has_disable_invite_codes(self):
+        assert callable(getattr(PDSContainer, "disable_invite_codes", None))
