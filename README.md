@@ -169,6 +169,36 @@ world = pds.seed({
 })
 ```
 
+### Email verification
+
+Test email verification and password reset flows with a local Mailpit SMTP server:
+
+```python
+with PDSContainer(email_mode="capture") as pds:
+    alice = pds.create_account("alice.test")
+
+    # Request verification email
+    alice.request_email_confirmation()
+
+    # Retrieve it from Mailpit
+    message = pds.await_email(alice.email)
+
+    # Extract token and confirm (token format is PDS-version-dependent)
+    token = extract_token(message)  # your extraction logic
+    alice.confirm_email(token)
+```
+
+Password reset follows the same pattern:
+
+```python
+    alice.request_password_reset()
+    message = pds.await_email(alice.email)
+    token = extract_token(message)
+    alice.reset_password(token, "new-password")
+```
+
+When `email_mode="none"` (the default), email verification is bypassed and no Mailpit container is started.
+
 ### Error handling
 
 XRPC failures raise `XrpcError` with structured fields:
