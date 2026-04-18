@@ -122,6 +122,42 @@ with PDSContainer() as pds:
     assert len(world.records["alice.test"]) == 2
 ```
 
+Placeholders let custom records reference other accounts' DIDs and records — resolved at `apply()` time:
+
+```python
+with PDSContainer() as pds:
+    world = (
+        Seed(pds)
+        .account("alice.test")
+            .record("com.example.project", {
+                "$type": "com.example.project",
+                "name": "My Project",
+            })
+        .account("bob.test")
+            .record("com.example.review", {
+                "$type": "com.example.review",
+                "reviewer": Seed.did("bob.test"),
+                "project": Seed.ref("alice.test", 0),
+            })
+        .apply()
+    )
+```
+
+Accounts can be revisited to interleave records (e.g. conversation threads):
+
+```python
+world = (
+    Seed(pds)
+    .account("alice.test")
+        .post("alice first")
+    .account("bob.test")
+        .post("bob replies")
+    .account("alice.test")
+        .post("alice continues")
+    .apply()
+)
+```
+
 Also available as a dict-based API for data-driven fixtures:
 
 ```python
