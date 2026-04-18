@@ -7,10 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0]
+
 ### Added
 
-- Declarative Seeding added to ROADMAP with builder-pattern API design and work items
-- Seeding usage example added to README
+- `Seed` fluent builder for declarative PDS test state — chain `.account()`, `.post()`, `.record()`, `.follow()`, `.like()`, `.repost()`, `.blob()` calls and materialize with `.apply()`
+- `World` frozen dataclass returned by `Seed.apply()` — maps handles to `Account` instances, ordered `RecordRef` lists, and blob references
+- Cross-account reference resolution: `.like("alice.test", 0)` resolves to Alice's first record URI automatically during `apply()`
+- Three-phase execution in `apply()`: accounts first, then blobs and records, then interactions (follows, likes, reposts)
+- `seed_from_dict(pds, spec)` — dict-based alternative for data-driven and YAML-loaded fixtures
+- `PDSContainer.seed(spec)` — convenience wrapper for `seed_from_dict`
+- Support for custom Lexicon collections via `.record(collection, record, rkey=)` — not limited to `app.bsky.*`
+- Eager validation: duplicate handles, undeclared targets, and missing account context raise at declaration time
+- `Seed` and `World` added to top-level package exports
 
 ### Removed
 
@@ -82,7 +91,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions `publish` workflow (main → Test PyPI, tags → Test+Prod PyPI + GitHub Release with changelog-extracted notes)
 
 <!-- Links -->
-[Unreleased]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.3.0...HEAD
+[Unreleased]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.4.0...HEAD
+[0.4.0]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.3.0...0.4.0
 [0.3.0]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.2.0...0.3.0
 [0.2.0]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.1.0...0.2.0
 [0.1.0]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.0.0...0.1.0
