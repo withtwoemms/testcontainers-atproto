@@ -25,6 +25,9 @@ testcontainers-atproto is a testing infrastructure module for anyone building on
 | v0.2.0 | XRPC Ergonomics | Complete |
 | v0.3.0 | Firehose Subscription | Complete |
 | v0.4.0 | Email Verification + Password Reset | Planned |
+| v0.5.0 | Account Lifecycle + Admin Operations | Planned |
+| v0.6.0 | Repo Sync | Planned |
+| v0.7.0 | Declarative Seeding | Planned |
 | v1.0.0 | Hermeticity + Federation | Planned |
 
 ---
@@ -139,6 +142,70 @@ Today, `PDS_DEV_MODE=true` silently bypasses email verification. Production PDS 
 - Password reset tests can exercise the full security-critical flow without mocking
 - `email_mode="none"` preserves the current fast path for tests that don't need email
 - The hermeticity pattern established by the local PLC directory extends to email — no external SMTP dependency
+
+---
+
+## v0.5.0 — Account Lifecycle + Admin Operations (Planned)
+
+**Theme:** Account state changes and moderation primitives.
+
+Production apps must handle accounts that are deactivated, deleted, or taken down by moderators. Today there's no ergonomic way to test what happens when an account disappears or changes state. This release adds account lifecycle methods and admin API access.
+
+- [ ] `Account.deactivate()` — call `com.atproto.server.deactivateAccount`
+- [ ] `Account.delete(password)` — call `com.atproto.server.deleteAccount` (requires email token when `email_mode="capture"`)
+- [ ] `PDSContainer.admin_get(method, params)` — authenticated admin XRPC query using HTTP Basic auth
+- [ ] `PDSContainer.admin_post(method, data)` — authenticated admin XRPC procedure using HTTP Basic auth
+- [ ] Admin takedown: disable an account via `com.atproto.admin.updateSubjectStatus`
+- [ ] Admin account status query: `com.atproto.admin.getSubjectStatus`
+- [ ] Admin invite code management: create and revoke invite codes programmatically
+- [ ] Integration tests: deactivate → verify inaccessible, delete → verify gone, takedown → verify blocked, lifecycle round-trips
+
+**Outcomes:**
+- Feed generators and indexers can test their behavior when accounts are removed from the network
+- Moderation tool developers can test admin actions against a real PDS
+- Client apps can verify graceful degradation for deactivated and deleted profiles
+
+---
+
+## v0.6.0 — Repo Sync (Planned)
+
+**Theme:** Repository export and blob retrieval for data consumption pipelines.
+
+The firehose (v0.3.0) provides incremental event notification. Repo sync provides the complementary full-state retrieval path that relays and indexers use for initial backfill and recovery. Together they cover both data consumption patterns in AT Protocol.
+
+- [ ] `Account.export_repo()` — call `com.atproto.sync.getRepo`, return raw CAR bytes
+- [ ] `Account.get_blob(cid)` — call `com.atproto.sync.getBlob`, return raw blob bytes
+- [ ] Optional CAR parsing utility: decode CAR bytes into blocks and root CID (guarded behind an extra or lightweight built-in)
+- [ ] `PDSContainer.sync_get(method, params)` — low-level sync endpoint access for methods not covered by helpers
+- [ ] Integration tests: create records → export repo → verify CAR contains expected blocks; upload blob → retrieve blob → verify round-trip; sync endpoint coverage
+
+**Outcomes:**
+- Relay and indexer developers can test full backfill pipelines: `getRepo` → parse CAR → verify records
+- Blob storage integrations can verify round-trip fidelity
+- The two data consumption patterns (firehose for incremental, sync for full-state) are both testable in isolation
+
+---
+
+## v0.7.0 — Declarative Seeding (Planned)
+
+**Theme:** Reduce boilerplate by describing test state declaratively.
+
+Integration tests that need a populated PDS — multiple accounts, posts, follows, likes, blobs — repeat dozens of imperative API calls before the first assertion. This release introduces a seeding API that lets test authors describe the desired world state and materialize it in one call.
+
+- [ ] `Seed` builder class — fluent API for declaring accounts, records, social graph edges (follows, likes, reposts), and blobs
+- [ ] `Seed.apply()` — materialize the declared state against a running `PDSContainer`, returning a `World` object
+- [ ] `World` result object — maps handles to `Account` instances and ordered lists of `RecordRef`s for cross-account assertions
+- [ ] Dependency-ordered creation: accounts first, then records, then interactions that reference other accounts' records
+- [ ] Cross-account references: `like("alice.test", 0)` resolves to Alice's first record URI automatically
+- [ ] Dict-based alternative: `pds.seed({...})` accepting a plain dict/JSON description for data-driven and YAML-loaded fixtures
+- [ ] Support for custom Lexicon collections — not limited to `app.bsky.*`
+- [ ] Integration tests: seed a multi-account social graph, verify record counts, verify cross-account references resolve correctly
+
+**Outcomes:**
+- Test setup for feed generators drops from 50+ lines of imperative calls to a single declarative block
+- Indexer and relay tests can spin up reproducible, complex PDS states without fragile setup code
+- SDK authors can define reusable seed fixtures across their test suites
+- CI pipelines benefit from deterministic, self-documenting test data
 
 ---
 
