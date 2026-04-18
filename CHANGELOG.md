@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0]
+
+### Added
+
+- `FirehoseSubscription` — WebSocket client for `com.atproto.sync.subscribeRepos` with binary CBOR frame decoding
+- `FirehoseSubscription.events(timeout)` — async generator yielding decoded `{"header": {...}, "body": {...}}` events until timeout
+- `FirehoseSubscription.collect(count, timeout)` — synchronous helper that collects events for test assertions via `asyncio.run()`
+- `FirehoseSubscription.close()` — graceful WebSocket teardown
+- `FirehoseSubscription` context manager support (`with sub:` and `async with sub:`)
+- `PDSContainer.subscribe(cursor)` — factory method returning a `FirehoseSubscription` bound to the container's WebSocket endpoint
+- Guarded import: actionable `ImportError` with install instructions when the `firehose` extra is not installed
+- `FirehoseSubscription` added to top-level package exports
+
 ## [0.2.0]
 
 ### Added
@@ -60,7 +73,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions `publish` workflow (main → Test PyPI, tags → Test+Prod PyPI + GitHub Release with changelog-extracted notes)
 
 <!-- Links -->
-[Unreleased]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.2.0...HEAD
+[Unreleased]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.3.0...HEAD
+[0.3.0]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.2.0...0.3.0
 [0.2.0]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.1.0...0.2.0
 [0.1.0]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.0.0...0.1.0
 [0.0.0]: https://github.com/withtwoemms/testcontainers-atproto/releases/tag/0.0.0

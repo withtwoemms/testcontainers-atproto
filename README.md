@@ -73,6 +73,30 @@ with PDSContainer() as pds:
     alice.delete_record("app.bsky.feed.post", ref.rkey)
 ```
 
+### Firehose subscription
+
+Observe real-time repository events via the AT Protocol firehose:
+
+```python
+from testcontainers_atproto import PDSContainer
+
+with PDSContainer() as pds:
+    alice = pds.create_account("alice.test")
+    alice.create_record("app.bsky.feed.post", {
+        "$type": "app.bsky.feed.post",
+        "text": "hello firehose",
+        "createdAt": "2026-01-01T00:00:00Z",
+    })
+
+    sub = pds.subscribe()
+    events = sub.collect(count=10, timeout=5.0)
+
+    commits = [e for e in events if e["header"].get("t") == "#commit"]
+    print(commits[-1]["body"]["ops"])  # [{"action": "create", ...}]
+```
+
+Requires the firehose extra: `pip install testcontainers-atproto[firehose]`
+
 ### Error handling
 
 XRPC failures raise `XrpcError` with structured fields:

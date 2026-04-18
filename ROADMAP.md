@@ -23,7 +23,7 @@ testcontainers-atproto is a testing infrastructure module for anyone building on
 | v0.0.0 | Package Scaffold | Complete |
 | v0.1.0 | Container Lifecycle + Account Creation | Complete |
 | v0.2.0 | XRPC Ergonomics | Complete |
-| v0.3.0 | Firehose Subscription | Planned |
+| v0.3.0 | Firehose Subscription | Complete |
 | v1.0.0 | Hermeticity + Federation | Planned |
 
 ---
@@ -94,22 +94,24 @@ testcontainers-atproto is a testing infrastructure module for anyone building on
 
 ---
 
-## v0.3.0 — Firehose Subscription (Planned)
+## v0.3.0 — Firehose Subscription (Complete)
 
 **Theme:** Observe repository events in real time.
 
-- [ ] `FirehoseSubscription` — WebSocket client for `com.atproto.sync.subscribeRepos`
-- [ ] `events(timeout)` — async generator yielding CBOR-decoded commit events
-- [ ] `collect(count, timeout)` — synchronous helper for test assertions
-- [ ] `close()` — graceful WebSocket teardown
-- [ ] `PDSContainer.subscribe(cursor)` — factory method returning a `FirehoseSubscription`
-- [ ] Guarded import: actionable `ImportError` if the `firehose` extra isn't installed
-- [ ] Integration tests: publish a record, assert the firehose emits a matching commit
+- [x] `FirehoseSubscription` — WebSocket client for `com.atproto.sync.subscribeRepos` with CBOR frame decoding via `cbor2`
+- [x] `events(timeout)` — async generator yielding decoded `{"header": {...}, "body": {...}}` events
+- [x] `collect(count, timeout)` — synchronous helper bridging async-to-sync via `asyncio.run()` for standard pytest tests
+- [x] `close()` — graceful WebSocket teardown
+- [x] `FirehoseSubscription` context manager support (sync and async)
+- [x] `PDSContainer.subscribe(cursor)` — factory method returning a `FirehoseSubscription`
+- [x] Guarded import: `websockets` and `cbor2` checked at module level; actionable `ImportError` when the `firehose` extra isn't installed
+- [x] `FirehoseSubscription` added to top-level package exports
+- [x] Integration tests: publish a record, assert the firehose emits a matching commit (`test_firehose.py`)
 
 **Outcomes:**
 - Indexer and feed-generator tests can verify event streams end-to-end
-- Synchronous `collect()` keeps test code simple
-- Optional dependency boundary cleanly enforced
+- Synchronous `collect()` keeps test code simple — no async boilerplate needed
+- Optional dependency boundary cleanly enforced at both the factory and method level
 
 ---
 

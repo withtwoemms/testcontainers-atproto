@@ -1,16 +1,19 @@
-# © 2026 The Radiativity Company
-# Licensed under the Apache License, Version 2.0
-# See the LICENSE file for details.
-
 """Sanity tests: package imports cleanly and RecordRef behaves."""
 
 import pytest
 
-from testcontainers_atproto import Account, PDSContainer, RecordRef, XrpcError
+from testcontainers_atproto import (
+    Account,
+    FirehoseSubscription,
+    PDSContainer,
+    RecordRef,
+    XrpcError,
+)
 
 
 def test_top_level_exports_are_classes():
     assert isinstance(Account, type)
+    assert isinstance(FirehoseSubscription, type)
     assert isinstance(PDSContainer, type)
     assert isinstance(RecordRef, type)
     assert isinstance(XrpcError, type)

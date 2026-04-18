@@ -1,7 +1,3 @@
-# © 2026 The Radiativity Company
-# Licensed under the Apache License, Version 2.0
-# See the LICENSE file for details.
-
 """Integration tests: xrpc_get, xrpc_post, and health."""
 
 import pytest

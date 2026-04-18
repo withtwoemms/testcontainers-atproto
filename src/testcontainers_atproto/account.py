@@ -1,7 +1,3 @@
-# © 2026 The Radiativity Company
-# Licensed under the Apache License, Version 2.0
-# See the LICENSE file for details.
-
 """Account: an authenticated ATP account on a PDS.
 """
 
