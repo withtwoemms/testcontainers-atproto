@@ -1,7 +1,3 @@
-# © 2026 The Radiativity Company
-# Licensed under the Apache License, Version 2.0
-# See the LICENSE file for details.
-
 """Pytest fixtures for testcontainers-atproto.
 
 Registered as a pytest plugin via the ``pytest11`` entry point. After

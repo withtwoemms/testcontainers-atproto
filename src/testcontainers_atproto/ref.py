@@ -1,7 +1,3 @@
-# © 2026 The Radiativity Company
-# Licensed under the Apache License, Version 2.0
-# See the LICENSE file for details.
-
 """RecordRef: a typed reference to a record in an ATP repo."""
 
 from __future__ import annotations

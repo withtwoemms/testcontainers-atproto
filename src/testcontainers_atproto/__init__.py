@@ -1,7 +1,3 @@
-# © 2026 The Radiativity Company
-# Licensed under the Apache License, Version 2.0
-# See the LICENSE file for details.
-
 """Testcontainers module for AT Protocol PDS integration testing."""
 
 from importlib.metadata import version as _pkg_version
