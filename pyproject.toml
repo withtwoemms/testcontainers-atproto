@@ -31,8 +31,9 @@ dependencies = [
 
 [project.optional-dependencies]
 firehose = ["websockets>=12.0", "cbor2>=5.0"]
+sync = ["cbor2>=5.0"]
 sdk = ["atproto>=0.0.50"]
-all = ["testcontainers-atproto[firehose,sdk]"]
+all = ["testcontainers-atproto[firehose,sync,sdk]"]
 test = [
     "pytest>=7.0",
     "coverage>=7.0",

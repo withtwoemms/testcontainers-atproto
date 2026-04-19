@@ -1302,6 +1302,9 @@ firehose = [
 sdk = [
     { name = "atproto" },
 ]
+sync = [
+    { name = "cbor2" },
+]
 test = [
     { name = "atproto" },
     { name = "cbor2" },
@@ -1316,15 +1319,16 @@ test = [
 requires-dist = [
     { name = "atproto", marker = "extra == 'sdk'", specifier = ">=0.0.50" },
     { name = "cbor2", marker = "extra == 'firehose'", specifier = ">=5.0" },
+    { name = "cbor2", marker = "extra == 'sync'", specifier = ">=5.0" },
     { name = "coverage", marker = "extra == 'test'", specifier = ">=7.0" },
     { name = "httpx", specifier = ">=0.24" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=7.0" },
     { name = "testcontainers", specifier = ">=4.0" },
     { name = "testcontainers-atproto", extras = ["all"], marker = "extra == 'test'" },
-    { name = "testcontainers-atproto", extras = ["firehose", "sdk"], marker = "extra == 'all'" },
+    { name = "testcontainers-atproto", extras = ["firehose", "sdk", "sync"], marker = "extra == 'all'" },
     { name = "websockets", marker = "extra == 'firehose'", specifier = ">=12.0" },
 ]
-provides-extras = ["firehose", "sdk", "all", "test"]
+provides-extras = ["firehose", "sync", "sdk", "all", "test"]
 
 [[package]]
 name = "tomli"

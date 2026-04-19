@@ -3,6 +3,7 @@
 from importlib.metadata import version as _pkg_version
 
 from testcontainers_atproto.account import Account
+from testcontainers_atproto.car import CarBlock, CarFile, parse_car
 from testcontainers_atproto.container import PDSContainer
 from testcontainers_atproto.errors import XrpcError
 from testcontainers_atproto.firehose import FirehoseSubscription
@@ -12,12 +13,15 @@ from testcontainers_atproto.world import World
 
 __all__ = [
     "Account",
+    "CarBlock",
+    "CarFile",
     "FirehoseSubscription",
     "PDSContainer",
     "RecordRef",
     "Seed",
     "World",
     "XrpcError",
+    "parse_car",
 ]
 
 #: Derived by setuptools_scm from the latest git tag at build time.

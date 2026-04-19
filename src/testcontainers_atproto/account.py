@@ -253,3 +253,31 @@ class Account:
                 "token": token,
             },
         )
+
+    # --- Repo Sync ---
+
+    def export_repo(self) -> bytes:
+        """Export this account's repository as raw CAR bytes.
+
+        Calls ``com.atproto.sync.getRepo`` and returns the binary
+        CAR (Content Addressable aRchive) response.
+        """
+        return self._pds.sync_get(
+            "com.atproto.sync.getRepo",
+            params={"did": self._did},
+        )
+
+    def get_blob(self, cid: str) -> bytes:
+        """Retrieve a blob by CID from this account's repository.
+
+        Calls ``com.atproto.sync.getBlob`` and returns the raw blob bytes.
+
+        Args:
+            cid: The content identifier of the blob (the ``$link``
+                value from the blob reference returned by
+                :meth:`upload_blob`).
+        """
+        return self._pds.sync_get(
+            "com.atproto.sync.getBlob",
+            params={"did": self._did, "cid": cid},
+        )
