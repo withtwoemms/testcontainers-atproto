@@ -295,14 +295,11 @@ class PDSContainer(DockerContainer):
         email = email or f"{handle.replace('.', '-')}@test.invalid"
         password = password or secrets.token_hex(12)
 
-        invite_resp = httpx.post(
-            f"{self.base_url}/xrpc/com.atproto.server.createInviteCode",
-            json={"useCount": 1},
-            auth=("admin", self._admin_password),
-            timeout=10.0,
+        invite_data = self.admin_post(
+            "com.atproto.server.createInviteCode",
+            data={"useCount": 1},
         )
-        invite_resp.raise_for_status()
-        invite_code = invite_resp.json()["code"]
+        invite_code = invite_data["code"]
 
         data = self.xrpc_post(
             "com.atproto.server.createAccount",
@@ -324,6 +321,32 @@ class PDSContainer(DockerContainer):
         )
 
     # --- Raw XRPC ---
+
+    def admin_get(self, method: str, params: Optional[dict] = None) -> dict:
+        """Raw XRPC query with HTTP Basic admin auth."""
+        resp = httpx.get(
+            f"{self.base_url}/xrpc/{method}",
+            params=params,
+            auth=("admin", self._admin_password),
+            timeout=10.0,
+        )
+        _raise_for_xrpc_status(resp, method)
+        if not resp.content:
+            return {}
+        return resp.json()
+
+    def admin_post(self, method: str, data: Optional[dict] = None) -> dict:
+        """Raw XRPC procedure with HTTP Basic admin auth."""
+        resp = httpx.post(
+            f"{self.base_url}/xrpc/{method}",
+            json=data,
+            auth=("admin", self._admin_password),
+            timeout=10.0,
+        )
+        _raise_for_xrpc_status(resp, method)
+        if not resp.content:
+            return {}
+        return resp.json()
 
     def xrpc_get(
         self,
@@ -383,6 +406,57 @@ class PDSContainer(DockerContainer):
         if not resp.content:
             return {}
         return resp.json()
+
+    # --- Admin Operations ---
+
+    def takedown(self, account: Account) -> dict:
+        """Take down an account via admin API."""
+        return self.admin_post(
+            "com.atproto.admin.updateSubjectStatus",
+            data={
+                "subject": {
+                    "$type": "com.atproto.admin.defs#repoRef",
+                    "did": account.did,
+                },
+                "takedown": {"applied": True},
+            },
+        )
+
+    def restore(self, account: Account) -> dict:
+        """Restore a taken-down account."""
+        return self.admin_post(
+            "com.atproto.admin.updateSubjectStatus",
+            data={
+                "subject": {
+                    "$type": "com.atproto.admin.defs#repoRef",
+                    "did": account.did,
+                },
+                "takedown": {"applied": False},
+            },
+        )
+
+    def get_subject_status(self, account: Account) -> dict:
+        """Query admin status for an account."""
+        return self.admin_get(
+            "com.atproto.admin.getSubjectStatus",
+            params={"did": account.did},
+        )
+
+    def disable_invite_codes(
+        self,
+        codes: Optional[list[str]] = None,
+        accounts: Optional[list[str]] = None,
+    ) -> None:
+        """Disable invite codes via admin API."""
+        data: dict = {}
+        if codes is not None:
+            data["codes"] = codes
+        if accounts is not None:
+            data["accounts"] = accounts
+        self.admin_post(
+            "com.atproto.admin.disableInviteCodes",
+            data=data,
+        )
 
     # --- Health ---
 

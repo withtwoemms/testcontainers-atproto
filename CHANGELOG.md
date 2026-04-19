@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0]
+
+### Added
+
+- `PDSContainer.admin_get(method, params=)` — raw XRPC query with HTTP Basic admin auth
+- `PDSContainer.admin_post(method, data=)` — raw XRPC procedure with HTTP Basic admin auth
+- `PDSContainer.takedown(account)` — take down an account via `com.atproto.admin.updateSubjectStatus`
+- `PDSContainer.restore(account)` — restore a taken-down account
+- `PDSContainer.get_subject_status(account)` — query admin status for an account via `com.atproto.admin.getSubjectStatus`
+- `PDSContainer.disable_invite_codes(codes=, accounts=)` — disable invite codes via `com.atproto.admin.disableInviteCodes`
+- `Account.deactivate(delete_after=)` — deactivate account via `com.atproto.server.deactivateAccount`
+- `Account.activate()` — re-activate a deactivated account via `com.atproto.server.activateAccount`
+- `Account.check_account_status()` — check account status via `com.atproto.server.checkAccountStatus`
+- `Account.request_account_delete()` — request deletion token via `com.atproto.server.requestAccountDelete`
+- `Account.delete_account(password, token)` — permanently delete account via `com.atproto.server.deleteAccount`
+- Integration tests: deactivate/activate, takedown/restore, delete, status queries, round-trips
+
+### Changed
+
+- `create_account` now uses `admin_post` internally for invite code creation — invite code failures now raise `XrpcError` instead of `httpx.HTTPStatusError`
+
 ## [0.5.0]
 
 ### Added
@@ -116,7 +137,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions `publish` workflow (main → Test PyPI, tags → Test+Prod PyPI + GitHub Release with changelog-extracted notes)
 
 <!-- Links -->
-[Unreleased]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.5.0...HEAD
+[Unreleased]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.6.0...HEAD
+[0.6.0]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.5.0...0.6.0
 [0.5.0]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.4.0...0.5.0
 [0.4.0]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.3.0...0.4.0
 [0.3.0]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.2.0...0.3.0

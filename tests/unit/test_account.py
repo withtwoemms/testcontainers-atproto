@@ -53,3 +53,31 @@ class TestAccountProperties:
     def test_unicode_handle(self):
         account = self._make_account(handle="t\u00e9st.test")
         assert account.handle == "t\u00e9st.test"
+
+
+class TestAccountLifecycleMethods:
+    """Account exposes lifecycle methods (no Docker needed)."""
+
+    def _make_account(self) -> Account:
+        return Account(
+            pds=None,  # type: ignore[arg-type]
+            did="did:plc:abc123",
+            handle="alice.test",
+            access_jwt="eyJ.access.token",
+            refresh_jwt="eyJ.refresh.token",
+        )
+
+    def test_has_deactivate(self):
+        assert callable(getattr(self._make_account(), "deactivate", None))
+
+    def test_has_activate(self):
+        assert callable(getattr(self._make_account(), "activate", None))
+
+    def test_has_check_account_status(self):
+        assert callable(getattr(self._make_account(), "check_account_status", None))
+
+    def test_has_request_account_delete(self):
+        assert callable(getattr(self._make_account(), "request_account_delete", None))
+
+    def test_has_delete_account(self):
+        assert callable(getattr(self._make_account(), "delete_account", None))

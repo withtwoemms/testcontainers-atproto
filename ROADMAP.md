@@ -26,7 +26,7 @@ testcontainers-atproto is a testing infrastructure module for anyone building on
 | v0.3.0 | Firehose Subscription | Complete |
 | v0.4.0 | Declarative Seeding | Complete |
 | v0.5.0 | Email Verification + Password Reset | Complete |
-| v0.6.0 | Account Lifecycle + Admin Operations | Planned |
+| v0.6.0 | Account Lifecycle + Admin Operations | Complete |
 | v0.7.0 | Repo Sync | Planned |
 | v1.0.0 | Hermeticity + Federation | Planned |
 
@@ -174,20 +174,25 @@ Today, `PDS_DEV_MODE=true` silently bypasses email verification. This release ad
 
 ---
 
-## v0.6.0 — Account Lifecycle + Admin Operations (Planned)
+## v0.6.0 — Account Lifecycle + Admin Operations (Complete)
 
 **Theme:** Account state changes and moderation primitives.
 
 Production apps must handle accounts that are deactivated, deleted, or taken down by moderators. Today there's no ergonomic way to test what happens when an account disappears or changes state. This release adds account lifecycle methods and admin API access.
 
-- [ ] `Account.deactivate()` — call `com.atproto.server.deactivateAccount`
-- [ ] `Account.delete(password)` — call `com.atproto.server.deleteAccount` (requires email token when `email_mode="capture"`)
-- [ ] `PDSContainer.admin_get(method, params)` — authenticated admin XRPC query using HTTP Basic auth
-- [ ] `PDSContainer.admin_post(method, data)` — authenticated admin XRPC procedure using HTTP Basic auth
-- [ ] Admin takedown: disable an account via `com.atproto.admin.updateSubjectStatus`
-- [ ] Admin account status query: `com.atproto.admin.getSubjectStatus`
-- [ ] Admin invite code management: create and revoke invite codes programmatically
-- [ ] Integration tests: deactivate → verify inaccessible, delete → verify gone, takedown → verify blocked, lifecycle round-trips
+- [x] `Account.deactivate(delete_after=)` — call `com.atproto.server.deactivateAccount`
+- [x] `Account.activate()` — call `com.atproto.server.activateAccount`
+- [x] `Account.check_account_status()` — call `com.atproto.server.checkAccountStatus`
+- [x] `Account.request_account_delete()` — request deletion token via `com.atproto.server.requestAccountDelete`
+- [x] `Account.delete_account(password, token)` — call `com.atproto.server.deleteAccount` (requires email token via `email_mode="capture"`)
+- [x] `PDSContainer.admin_get(method, params)` — authenticated admin XRPC query using HTTP Basic auth
+- [x] `PDSContainer.admin_post(method, data)` — authenticated admin XRPC procedure using HTTP Basic auth
+- [x] `PDSContainer.takedown(account)` — disable an account via `com.atproto.admin.updateSubjectStatus`
+- [x] `PDSContainer.restore(account)` — restore a taken-down account
+- [x] `PDSContainer.get_subject_status(account)` — query admin status via `com.atproto.admin.getSubjectStatus`
+- [x] `PDSContainer.disable_invite_codes(codes=, accounts=)` — disable invite codes via `com.atproto.admin.disableInviteCodes`
+- [x] `create_account` refactored to use `admin_post` internally
+- [x] Integration tests: deactivate → verify inaccessible, activate → verify restored, delete → verify gone, takedown → verify blocked, lifecycle round-trips
 
 **Outcomes:**
 - Feed generators and indexers can test their behavior when accounts are removed from the network

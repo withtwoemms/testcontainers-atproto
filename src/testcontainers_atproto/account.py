@@ -208,3 +208,48 @@ class Account:
             "com.atproto.server.resetPassword",
             data={"token": token, "password": new_password},
         )
+
+    # --- Account Lifecycle ---
+
+    def deactivate(self, delete_after: Optional[str] = None) -> None:
+        """Deactivate this account. Use activate() to re-enable."""
+        data: dict = {}
+        if delete_after is not None:
+            data["deleteAfter"] = delete_after
+        self._pds.xrpc_post(
+            "com.atproto.server.deactivateAccount",
+            data=data,
+            auth=self._access_jwt,
+        )
+
+    def activate(self) -> None:
+        """Re-activate a previously deactivated account."""
+        self._pds.xrpc_post(
+            "com.atproto.server.activateAccount",
+            auth=self._access_jwt,
+        )
+
+    def check_account_status(self) -> dict:
+        """Check this account's status (activated, validDid, repo stats)."""
+        return self._pds.xrpc_get(
+            "com.atproto.server.checkAccountStatus",
+            auth=self._access_jwt,
+        )
+
+    def request_account_delete(self) -> None:
+        """Request deletion token via email. Requires email_mode='capture'."""
+        self._pds.xrpc_post(
+            "com.atproto.server.requestAccountDelete",
+            auth=self._access_jwt,
+        )
+
+    def delete_account(self, password: str, token: str) -> None:
+        """Delete this account permanently."""
+        self._pds.xrpc_post(
+            "com.atproto.server.deleteAccount",
+            data={
+                "did": self._did,
+                "password": password,
+                "token": token,
+            },
+        )

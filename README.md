@@ -199,6 +199,55 @@ Password reset follows the same pattern:
 
 When `email_mode="none"` (the default), email verification is bypassed and no Mailpit container is started.
 
+### Account lifecycle
+
+Deactivate, reactivate, and delete accounts to test how your app handles state changes:
+
+```python
+with PDSContainer() as pds:
+    alice = pds.create_account("alice.test")
+
+    # Deactivate — account becomes inaccessible
+    alice.deactivate()
+
+    # Re-activate — access restored
+    alice.activate()
+
+    # Check status
+    status = alice.check_account_status()
+    assert status["activated"] is True
+```
+
+Admin operations let you test moderation flows:
+
+```python
+with PDSContainer() as pds:
+    alice = pds.create_account("alice.test")
+
+    # Takedown — blocks access
+    pds.takedown(alice)
+
+    # Restore — unblocks access
+    pds.restore(alice)
+
+    # Query status
+    status = pds.get_subject_status(alice)
+```
+
+Account deletion requires `email_mode="capture"` to retrieve the deletion token:
+
+```python
+with PDSContainer(email_mode="capture") as pds:
+    alice = pds.create_account("alice.test", password="s3cret")
+
+    # ... confirm email first ...
+
+    alice.request_account_delete()
+    message = pds.await_email(alice.email)
+    token = extract_token(message)  # your extraction logic
+    alice.delete_account("s3cret", token)
+```
+
 ### Error handling
 
 XRPC failures raise `XrpcError` with structured fields:
