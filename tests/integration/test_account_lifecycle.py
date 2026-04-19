@@ -36,16 +36,13 @@ def _extract_token(pds: PDSContainer, message_id: str) -> str:
 class TestDeactivateActivate:
     """Account deactivation and reactivation."""
 
-    def test_deactivate_makes_account_inaccessible(self):
+    def test_deactivate_blocks_repo_operations(self):
         with PDSContainer() as pds:
             alice = pds.create_account("alice.test")
             alice.deactivate()
 
             with pytest.raises(XrpcError):
-                pds.xrpc_get(
-                    "com.atproto.server.getSession",
-                    auth=alice.access_jwt,
-                )
+                alice.list_records("app.bsky.feed.post")
 
     def test_activate_restores_access(self):
         with PDSContainer() as pds:
