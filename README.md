@@ -21,8 +21,9 @@ Requires Python 3.10+ and a running Docker daemon.
 | Extra | What it adds |
 |-------|-------------|
 | `testcontainers-atproto[firehose]` | `websockets`, `cbor2` for firehose subscription |
+| `testcontainers-atproto[sync]` | `cbor2` for CAR file parsing |
 | `testcontainers-atproto[sdk]` | `atproto` (MarshalX SDK) for high-level record ops |
-| `testcontainers-atproto[all]` | Both of the above |
+| `testcontainers-atproto[all]` | All of the above |
 
 ---
 
@@ -96,6 +97,35 @@ with PDSContainer() as pds:
 ```
 
 Requires the firehose extra: `pip install testcontainers-atproto[firehose]`
+
+### Repo sync
+
+Export repositories and retrieve blobs for relay and indexer testing:
+
+```python
+with PDSContainer() as pds:
+    alice = pds.create_account("alice.test")
+    alice.create_record("app.bsky.feed.post", {
+        "$type": "app.bsky.feed.post",
+        "text": "sync test",
+        "createdAt": "2026-01-01T00:00:00Z",
+    })
+
+    # Export full repository as CAR bytes
+    car_bytes = alice.export_repo()
+
+    # Parse the CAR to inspect blocks
+    from testcontainers_atproto import parse_car
+    car = parse_car(car_bytes)
+    print(f"{len(car.blocks)} blocks, {len(car.roots)} roots")
+
+    # Retrieve a specific blob
+    blob_ref = alice.upload_blob(b"test data", "image/png")
+    blob_data = alice.get_blob(blob_ref["ref"]["$link"])
+    assert blob_data == b"test data"
+```
+
+CAR parsing requires the sync extra: `pip install testcontainers-atproto[sync]`
 
 ### Declarative seeding
 
