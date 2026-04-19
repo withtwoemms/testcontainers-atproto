@@ -407,6 +407,31 @@ class PDSContainer(DockerContainer):
             return {}
         return resp.json()
 
+    # --- Sync ---
+
+    def sync_get(
+        self,
+        method: str,
+        params: Optional[dict] = None,
+        auth: Optional[str] = None,
+    ) -> bytes:
+        """Raw sync endpoint query returning binary data.
+
+        Sync endpoints (``com.atproto.sync.*``) return binary responses
+        such as CAR files and blob data, rather than JSON.
+        """
+        headers: dict[str, str] = {}
+        if auth is not None:
+            headers["Authorization"] = f"Bearer {auth}"
+        resp = httpx.get(
+            f"{self.base_url}/xrpc/{method}",
+            params=params,
+            headers=headers,
+            timeout=30.0,
+        )
+        _raise_for_xrpc_status(resp, method)
+        return resp.content
+
     # --- Admin Operations ---
 
     def takedown(self, account: Account) -> dict:

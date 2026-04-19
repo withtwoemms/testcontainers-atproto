@@ -52,3 +52,10 @@ class TestAdminMethods:
 
     def test_has_disable_invite_codes(self):
         assert callable(getattr(PDSContainer, "disable_invite_codes", None))
+
+
+class TestSyncMethods:
+    """PDSContainer exposes sync methods (no Docker needed)."""
+
+    def test_has_sync_get(self):
+        assert callable(getattr(PDSContainer, "sync_get", None))

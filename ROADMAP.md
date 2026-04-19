@@ -27,7 +27,7 @@ testcontainers-atproto is a testing infrastructure module for anyone building on
 | v0.4.0 | Declarative Seeding | Complete |
 | v0.5.0 | Email Verification + Password Reset | Complete |
 | v0.6.0 | Account Lifecycle + Admin Operations | Complete |
-| v0.7.0 | Repo Sync | Planned |
+| v0.7.0 | Repo Sync | Complete |
 | v1.0.0 | Hermeticity + Federation | Planned |
 
 ---
@@ -201,17 +201,19 @@ Production apps must handle accounts that are deactivated, deleted, or taken dow
 
 ---
 
-## v0.7.0 — Repo Sync (Planned)
+## v0.7.0 — Repo Sync (Complete)
 
 **Theme:** Repository export and blob retrieval for data consumption pipelines.
 
 The firehose (v0.3.0) provides incremental event notification. Repo sync provides the complementary full-state retrieval path that relays and indexers use for initial backfill and recovery. Together they cover both data consumption patterns in AT Protocol.
 
-- [ ] `Account.export_repo()` — call `com.atproto.sync.getRepo`, return raw CAR bytes
-- [ ] `Account.get_blob(cid)` — call `com.atproto.sync.getBlob`, return raw blob bytes
-- [ ] Optional CAR parsing utility: decode CAR bytes into blocks and root CID (guarded behind an extra or lightweight built-in)
-- [ ] `PDSContainer.sync_get(method, params)` — low-level sync endpoint access for methods not covered by helpers
-- [ ] Integration tests: create records → export repo → verify CAR contains expected blocks; upload blob → retrieve blob → verify round-trip; sync endpoint coverage
+- [x] `Account.export_repo()` — call `com.atproto.sync.getRepo`, return raw CAR bytes
+- [x] `Account.get_blob(cid)` — call `com.atproto.sync.getBlob`, return raw blob bytes
+- [x] `parse_car(data)` — CAR v1 parsing utility: decode CAR bytes into `CarFile` with roots and `CarBlock` list (guarded behind `sync` extra providing `cbor2`)
+- [x] `PDSContainer.sync_get(method, params, auth)` — low-level sync endpoint access returning raw bytes for methods not covered by helpers
+- [x] `sync` optional dependency extra (`cbor2>=5.0`) for CAR parsing support
+- [x] `CarFile`, `CarBlock`, and `parse_car` added to top-level package exports
+- [x] Integration tests: create records → export repo → verify CAR contains expected blocks; upload blob → retrieve blob → verify round-trip; cross-account isolation; sync endpoint coverage
 
 **Outcomes:**
 - Relay and indexer developers can test full backfill pipelines: `getRepo` → parse CAR → verify records

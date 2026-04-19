@@ -14,11 +14,12 @@ Spin up ephemeral [PDS](./glossary.md) instances in your Python test suite. [Lex
 6. [Raw XRPC Access](#raw-xrpc-access)
 7. [Declarative Seeding](#declarative-seeding)
 8. [Firehose Subscription](#firehose-subscription)
-9. [Email Verification and Password Reset](#email-verification-and-password-reset)
-10. [Account Lifecycle and Admin Operations](#account-lifecycle-and-admin-operations)
-11. [Pytest Fixtures](#pytest-fixtures)
-12. [Error Handling](#error-handling)
-13. [API Reference](#api-reference)
+9. [Repo Sync](#repo-sync)
+10. [Email Verification and Password Reset](#email-verification-and-password-reset)
+11. [Account Lifecycle and Admin Operations](#account-lifecycle-and-admin-operations)
+12. [Pytest Fixtures](#pytest-fixtures)
+13. [Error Handling](#error-handling)
+14. [API Reference](#api-reference)
 
 ---
 
@@ -35,8 +36,9 @@ Requires Python 3.10+ and a running Docker daemon.
 | Extra | What it adds |
 |-------|-------------|
 | `testcontainers-atproto[firehose]` | `websockets`, `cbor2` for firehose subscription |
+| `testcontainers-atproto[sync]` | `cbor2` for CAR file parsing |
 | `testcontainers-atproto[sdk]` | `atproto` (MarshalX SDK) for high-level record ops |
-| `testcontainers-atproto[all]` | Both of the above |
+| `testcontainers-atproto[all]` | All of the above |
 
 ---
 
@@ -447,6 +449,87 @@ Supports both sync (`with sub:`) and async (`async with sub:`) context managers.
 
 ---
 
+## Repo Sync
+
+Export repositories and retrieve blobs for relay and indexer testing. The firehose (see above) provides incremental event notification; repo sync provides the complementary full-state retrieval path used for initial backfill and recovery.
+
+### Exporting a repository
+
+```python
+with PDSContainer() as pds:
+    alice = pds.create_account("alice.test")
+    alice.create_record("app.bsky.feed.post", {
+        "$type": "app.bsky.feed.post",
+        "text": "sync test",
+        "createdAt": "2026-01-01T00:00:00Z",
+    })
+
+    # Export full repository as CAR bytes
+    car_bytes = alice.export_repo()
+```
+
+Returns the raw binary CAR (Content Addressable aRchive) response from `com.atproto.sync.getRepo`.
+
+### Retrieving blobs
+
+```python
+    blob_ref = alice.upload_blob(b"test data", "image/png")
+    cid = blob_ref["ref"]["$link"]
+
+    # Retrieve by CID
+    blob_data = alice.get_blob(cid)
+    assert blob_data == b"test data"
+```
+
+### Parsing CAR files
+
+The optional `parse_car` utility decodes CAR v1 archives into structured Python objects. Requires `cbor2` (available via the `sync` or `firehose` extra).
+
+```python
+from testcontainers_atproto import parse_car
+
+car = parse_car(car_bytes)
+print(car.version)       # 1
+print(len(car.roots))    # number of root CIDs
+print(len(car.blocks))   # number of blocks
+```
+
+Install with: `pip install testcontainers-atproto[sync]`
+
+### Low-level sync access
+
+For sync endpoints not covered by helpers, use `sync_get` directly. It returns raw bytes instead of JSON.
+
+```python
+car_bytes = pds.sync_get(
+    "com.atproto.sync.getRepo",
+    params={"did": alice.did},
+)
+```
+
+### Account sync methods
+
+| Method | Description |
+|--------|-------------|
+| `export_repo()` | Export repository as raw CAR bytes |
+| `get_blob(cid)` | Retrieve a blob by CID |
+
+### Container sync methods
+
+| Method | Description |
+|--------|-------------|
+| `sync_get(method, params=, auth=)` | Raw sync endpoint query returning bytes |
+
+### CAR parsing types
+
+| Type | Description |
+|------|-------------|
+| `CarFile` | Frozen dataclass: `version`, `roots`, `blocks` |
+| `CarBlock` | Frozen dataclass: `cid` (bytes), `data` (bytes) |
+| `parse_car(data)` | Parse CAR v1 bytes into a `CarFile` |
+
+---
+
 ## Email Verification and Password Reset
 
 Test email verification and password reset flows with a local Mailpit SMTP server. When `email_mode="capture"`, the [PDS](./glossary.md) sends real emails through Mailpit, and test code retrieves them via Mailpit's HTTP API.
@@ -718,20 +801,31 @@ with PDSContainer() as pds:
 | Class | Module | Description |
 |-------|--------|-------------|
 | `PDSContainer` | `container` | Ephemeral [PDS](./glossary.md) with companion containers |
-| `Account` | `account` | Authenticated [ATP](./glossary.md) account with record and email operations |
+| `Account` | `account` | Authenticated [ATP](./glossary.md) account with record, email, and sync operations |
 | `RecordRef` | `ref` | Frozen dataclass referencing a created/updated record (AT URI + [CID](./glossary.md)) |
+| `CarFile` | `car` | Frozen dataclass representing a parsed CAR v1 archive |
+| `CarBlock` | `car` | Frozen dataclass representing a single block in a CAR file |
 | `Seed` | `seed` | Fluent builder for declarative PDS state |
 | `World` | `world` | Frozen dataclass of materialized seed state |
 | `FirehoseSubscription` | `firehose` | WebSocket client for `subscribeRepos` with [CBOR](./glossary.md) decoding |
 | `XrpcError` | `errors` | Structured exception for [XRPC](./glossary.md) failures |
 
-All classes are exported from `testcontainers_atproto`:
+### Functions
+
+| Function | Module | Description |
+|----------|--------|-------------|
+| `parse_car` | `car` | Parse CAR v1 bytes into a `CarFile` (requires `cbor2`) |
+
+All classes and functions are exported from `testcontainers_atproto`:
 
 ```python
 from testcontainers_atproto import (
     PDSContainer,
     Account,
     RecordRef,
+    CarFile,
+    CarBlock,
+    parse_car,
     Seed,
     World,
     FirehoseSubscription,

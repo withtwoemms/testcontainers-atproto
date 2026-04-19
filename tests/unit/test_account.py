@@ -81,3 +81,22 @@ class TestAccountLifecycleMethods:
 
     def test_has_delete_account(self):
         assert callable(getattr(self._make_account(), "delete_account", None))
+
+
+class TestAccountRepoSyncMethods:
+    """Account exposes repo sync methods (no Docker needed)."""
+
+    def _make_account(self) -> Account:
+        return Account(
+            pds=None,  # type: ignore[arg-type]
+            did="did:plc:abc123",
+            handle="alice.test",
+            access_jwt="eyJ.access.token",
+            refresh_jwt="eyJ.refresh.token",
+        )
+
+    def test_has_export_repo(self):
+        assert callable(getattr(self._make_account(), "export_repo", None))
+
+    def test_has_get_blob(self):
+        assert callable(getattr(self._make_account(), "get_blob", None))

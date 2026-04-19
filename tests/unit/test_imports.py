@@ -4,23 +4,32 @@ import pytest
 
 from testcontainers_atproto import (
     Account,
+    CarBlock,
+    CarFile,
     FirehoseSubscription,
     PDSContainer,
     RecordRef,
     Seed,
     World,
     XrpcError,
+    parse_car,
 )
 
 
 def test_top_level_exports_are_classes():
     assert isinstance(Account, type)
+    assert isinstance(CarBlock, type)
+    assert isinstance(CarFile, type)
     assert isinstance(FirehoseSubscription, type)
     assert isinstance(PDSContainer, type)
     assert isinstance(RecordRef, type)
     assert isinstance(Seed, type)
     assert isinstance(World, type)
     assert isinstance(XrpcError, type)
+
+
+def test_parse_car_is_callable():
+    assert callable(parse_car)
 
 
 def test_record_ref_parses_at_uri():
