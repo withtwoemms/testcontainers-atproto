@@ -90,8 +90,8 @@ class TestGetBlob:
     def test_round_trip_blob(self):
         with PDSContainer() as pds:
             alice = pds.create_account("alice.test")
-            original = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100  # fake PNG
-            blob_ref = alice.upload_blob(original, "image/png")
+            original = b"round-trip blob test data"
+            blob_ref = alice.upload_blob(original, "application/octet-stream")
             cid = blob_ref["ref"]["$link"]
 
             retrieved = alice.get_blob(cid)
