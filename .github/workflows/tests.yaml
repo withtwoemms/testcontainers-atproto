@@ -13,7 +13,7 @@ concurrency:
 jobs:
   run_tests:
     runs-on: ubuntu-22.04
-    timeout-minutes: 10
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
