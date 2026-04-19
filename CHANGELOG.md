@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0]
+
+### Added
+
+- `PDSContainer.sync_get(method, params=, auth=)` — raw sync endpoint query returning binary bytes instead of JSON, for `com.atproto.sync.*` endpoints
+- `Account.export_repo()` — export the account's repository as raw CAR bytes via `com.atproto.sync.getRepo`
+- `Account.get_blob(cid)` — retrieve an uploaded blob by CID via `com.atproto.sync.getBlob`
+- `car` module with `parse_car(data)` utility function for decoding CAR v1 archives into `CarFile` and `CarBlock` dataclasses (requires `cbor2`, available via the new `sync` extra)
+- `CarFile` and `CarBlock` frozen dataclasses for representing parsed CAR contents
+- `sync` optional dependency extra (`cbor2>=5.0`) for CAR parsing support
+- `CarFile`, `CarBlock`, and `parse_car` added to top-level package exports
+- Integration tests: repo export, blob round-trip, CAR parsing, cross-account isolation
+
 ## [0.6.0]
 
 ### Added
@@ -137,7 +150,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions `publish` workflow (main → Test PyPI, tags → Test+Prod PyPI + GitHub Release with changelog-extracted notes)
 
 <!-- Links -->
-[Unreleased]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.6.0...HEAD
+[Unreleased]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.7.0...HEAD
+[0.7.0]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.6.0...0.7.0
 [0.6.0]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.5.0...0.6.0
 [0.5.0]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.4.0...0.5.0
 [0.4.0]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.3.0...0.4.0
