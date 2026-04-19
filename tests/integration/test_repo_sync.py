@@ -94,6 +94,16 @@ class TestGetBlob:
             blob_ref = alice.upload_blob(original, "application/octet-stream")
             cid = blob_ref["ref"]["$link"]
 
+            # Blobs must be referenced by a record before getBlob can find them
+            alice.create_record(_COLLECTION, {
+                "$type": _COLLECTION,
+                "text": "post with blob",
+                "createdAt": "2026-01-01T00:00:00Z",
+                "embed": {"$type": "app.bsky.embed.images", "images": [
+                    {"alt": "test", "image": blob_ref},
+                ]},
+            })
+
             retrieved = alice.get_blob(cid)
             assert isinstance(retrieved, bytes)
             assert retrieved == original
