@@ -1,0 +1,8 @@
+prune .github
+prune docs
+prune tests
+exclude .gitignore
+exclude Makefile
+exclude ROADMAP.md
+exclude CHANGELOG.md
+exclude uv.lock
