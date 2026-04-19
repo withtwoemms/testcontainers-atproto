@@ -218,7 +218,7 @@ class Account:
             data["deleteAfter"] = delete_after
         self._pds.xrpc_post(
             "com.atproto.server.deactivateAccount",
-            data=data or None,
+            data=data,
             auth=self._access_jwt,
         )
 
