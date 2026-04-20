@@ -17,9 +17,10 @@ Spin up ephemeral [PDS](./glossary.md) instances in your Python test suite. [Lex
 9. [Repo Sync](#repo-sync)
 10. [Email Verification and Password Reset](#email-verification-and-password-reset)
 11. [Account Lifecycle and Admin Operations](#account-lifecycle-and-admin-operations)
-12. [Pytest Fixtures](#pytest-fixtures)
-13. [Error Handling](#error-handling)
-14. [API Reference](#api-reference)
+12. [Federation Testing](#federation-testing)
+13. [Pytest Fixtures](#pytest-fixtures)
+14. [Error Handling](#error-handling)
+15. [API Reference](#api-reference)
 
 ---
 
@@ -743,6 +744,83 @@ pds.disable_invite_codes(codes=["invite-code-1"], accounts=[])
 
 ---
 
+## Federation Testing
+
+The `pds_pair` fixture boots two [PDS](./glossary.md) instances sharing a single [PLC](./glossary.md) directory and Docker network. This mirrors a real federation topology where multiple PDS servers register [DIDs](./glossary.md) in a common directory.
+
+### Architecture
+
+```
+                    ┌─────────────────────────────────────────┐
+                    │        Shared Docker Network            │
+                    │                                         │
+                    │  ┌───────────┐    ┌───────────────────┐ │
+                    │  │  PDS-A    │    │  PLC Directory    │ │
+                    │  │  :3000    │───►│  :2582            │ │
+                    │  │           │    │                   │ │
+                    │  └───────────┘    │  DID registration │ │
+                    │                   │                   │ │
+                    │  ┌───────────┐    │                   │ │
+                    │  │  PDS-B    │───►│                   │ │
+                    │  │  :3000    │    └───────────────────┘ │
+                    │  │           │                          │
+                    │  └───────────┘                          │
+                    └─────────────────────────────────────────┘
+```
+
+### Handle resolution vs. DID resolution
+
+In AT Protocol, handle resolution (`resolveHandle`) is a local operation — each PDS resolves handles from its own database. Cross-PDS discovery works through DIDs:
+
+1. Account creation registers the DID in the shared PLC directory
+2. The DID document contains the `alsoKnownAs` handle and the `atproto_pds` service endpoint
+3. Any participant can resolve a DID via PLC to discover which PDS hosts the account
+
+```python
+def test_federation(pds_pair):
+    pds_a, pds_b = pds_pair
+    alice = pds_a.create_account("alice.test")
+    bob = pds_b.create_account("bob.test")
+
+    # Each PDS resolves its own handles
+    result = pds_a.xrpc_get(
+        "com.atproto.identity.resolveHandle",
+        params={"handle": "alice.test"},
+    )
+    assert result["did"] == alice.did
+
+    # Cross-PDS discovery uses DIDs (the canonical identifier)
+    # DIDs from both PDS instances are in the shared PLC
+    assert alice.did != bob.did
+```
+
+### Seeding on federated pairs
+
+Declarative seeding works independently on each PDS in a federated pair:
+
+```python
+from testcontainers_atproto import Seed
+
+def test_federated_seeding(pds_pair):
+    pds_a, pds_b = pds_pair
+    world_a = (
+        Seed(pds_a)
+        .account("alice.test")
+            .post("Hello from PDS-A")
+        .apply()
+    )
+    world_b = (
+        Seed(pds_b)
+        .account("bob.test")
+            .post("Hello from PDS-B")
+        .apply()
+    )
+    assert len(world_a.records["alice.test"]) == 1
+    assert len(world_b.records["bob.test"]) == 1
+```
+
+---
+
 ## Pytest Fixtures
 
 After installing the package, these fixtures are available automatically via the `pytest11` entry point — no imports needed:
@@ -751,7 +829,7 @@ After installing the package, these fixtures are available automatically via the
 |---------|-------|-------------|
 | `pds` | function | Fresh [PDS](./glossary.md) instance per test |
 | `pds_module` | module | Shared PDS instance within a test module |
-| `pds_pair` | function | Two PDS instances for federation testing |
+| `pds_pair` | function | Two federated PDS instances sharing a [PLC](./glossary.md) directory |
 | `pds_image` | session | PDS image tag (override via `ATP_PDS_IMAGE` env var) |
 
 ```python
