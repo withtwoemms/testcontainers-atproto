@@ -28,7 +28,7 @@ testcontainers-atproto is a testing infrastructure module for anyone building on
 | v0.5.0 | Email Verification + Password Reset | Complete |
 | v0.6.0 | Account Lifecycle + Admin Operations | Complete |
 | v0.7.0 | Repo Sync | Complete |
-| v1.0.0 | Hermeticity + Federation | Planned |
+| v1.0.0 | Federation + Stability | Complete |
 
 ---
 
@@ -222,18 +222,24 @@ The firehose (v0.3.0) provides incremental event notification. Repo sync provide
 
 ---
 
-## v1.0.0 — Hermeticity + Federation (Planned)
+## v1.0.0 — Federation + Stability (Complete)
 
-**Theme:** Fully isolated test environments.
+**Theme:** Multi-PDS federation testing and API stability commitment.
 
 - [x] ~~Mock PLC directory~~ — delivered in v0.1.0 (`plc_mode="mock"` and `plc_mode="real"`)
-- [ ] `did:web` account support — skip PLC round-trip for faster container boot
-- [ ] `pds_pair` federation validation — two containers resolving each other's records via shared PLC
-- [ ] API audit and stability commitment
+- [x] `pds_pair` fixture — two PDS instances sharing a single PLC directory and Docker network
+- [x] Private `_network` and `_plc_url` kwargs on `PDSContainer` for injecting shared infrastructure
+- [x] `_owns_network` flag controlling lifecycle ownership (standalone vs. federation mode)
+- [x] Hostname-based Docker network aliases for cross-PDS DNS resolution
+- [x] Cross-PDS DID resolution via shared PLC directory
+- [x] API audit — 10 classes, 4 fixtures, consistent patterns throughout
+- [x] Classifier updated to `Beta`
 
 **Outcomes:**
-- Federation scenarios testable with the `pds_pair` fixture
-- Stable API surface with semantic versioning commitment
+- Federation scenarios testable with the `pds_pair` fixture — DIDs registered on one PDS are resolvable via the shared PLC from the other
+- DID documents correctly record which PDS hosts each account
+- Declarative seeding works independently on each PDS in a federated pair
+- Stable API surface with semantic versioning commitment — no breaking changes without a major version bump
 
 ---
 
@@ -241,6 +247,7 @@ The firehose (v0.3.0) provides incremental event notification. Repo sync provide
 
 | Feature | Notes |
 |---------|-------|
+| `did:web` account support | Skip PLC round-trip for faster container boot |
 | Labeler testing | Ephemeral labeler service alongside PDS |
 | Feed generator harness | Test custom feed algorithms against a seeded PDS |
 | Relay / BGS container | Multi-relay topologies for indexer stress tests |
