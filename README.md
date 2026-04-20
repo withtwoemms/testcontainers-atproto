@@ -199,6 +199,30 @@ world = pds.seed({
 })
 ```
 
+### Federation testing
+
+Test cross-PDS scenarios with two PDS instances sharing a PLC directory:
+
+```python
+def test_cross_pds_resolution(pds_pair):
+    pds_a, pds_b = pds_pair
+    alice = pds_a.create_account("alice.test")
+    bob = pds_b.create_account("bob.test")
+
+    # Each PDS resolves its own handles
+    assert pds_a.xrpc_get(
+        "com.atproto.identity.resolveHandle",
+        params={"handle": "alice.test"},
+    )["did"] == alice.did
+
+    # DIDs from both PDS instances are registered in the shared PLC
+    assert alice.did != bob.did
+    assert alice.did.startswith("did:plc:")
+    assert bob.did.startswith("did:plc:")
+```
+
+The `pds_pair` fixture creates a shared Docker network and PLC directory. Handle resolution is local to each PDS; cross-PDS discovery uses DIDs resolved through the shared PLC.
+
 ### Email verification
 
 Test email verification and password reset flows with a local Mailpit SMTP server:
