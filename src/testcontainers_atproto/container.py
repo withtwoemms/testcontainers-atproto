@@ -55,6 +55,9 @@ class PDSContainer(DockerContainer):
         admin_password: Optional[str] = None,
         plc_mode: str = "mock",
         email_mode: str = "none",
+        *,
+        _network: Optional[Network] = None,
+        _plc_url: Optional[str] = None,
     ) -> None:
         self._hostname = hostname
         self._admin_password = admin_password or secrets.token_hex(16)
@@ -64,51 +67,60 @@ class PDSContainer(DockerContainer):
 
         # --- Docker network (shared by all companion containers) ---
 
-        self._plc_network = Network()
+        if _network is not None:
+            # External network — federation mode (managed by caller)
+            self._plc_network = _network
+            self._owns_network = False
+            self._plc: Optional[DockerContainer] = None
+            self._postgres: Optional[DockerContainer] = None
+        else:
+            # Self-managed network — standalone mode
+            self._plc_network = Network()
+            self._owns_network = True
 
-        # --- PLC directory ---
+            # --- PLC directory ---
 
-        self._plc = DockerContainer(
-            _PLC_IMAGE,
-            _wait_strategy=(
-                HttpWaitStrategy(_PLC_PORT, "/_health")
-                .for_response_predicate(lambda body: "version" in body)
-                .with_startup_timeout(30)
-                .with_poll_interval(0.5)
-            ),
-        )
-        self._plc.with_network(self._plc_network)
-        self._plc.with_network_aliases("plc")
-        self._plc.with_exposed_ports(_PLC_PORT)
-        self._plc.with_env("PORT", str(_PLC_PORT))
-        self._plc.with_env("DEBUG_MODE", "1")
-        self._plc.with_env("LOG_ENABLED", "true")
-        self._plc.with_command("yarn run start")
-        self._plc.with_kwargs(working_dir="/app/packages/server")
-
-        # --- Postgres (real mode only) ---
-
-        if plc_mode == "real":
-            self._postgres: Optional[DockerContainer] = DockerContainer(
-                _POSTGRES_IMAGE,
+            self._plc = DockerContainer(
+                _PLC_IMAGE,
                 _wait_strategy=(
-                    ExecWaitStrategy(["sh", "-c", "pg_isready -U plc"])
+                    HttpWaitStrategy(_PLC_PORT, "/_health")
+                    .for_response_predicate(lambda body: "version" in body)
                     .with_startup_timeout(30)
+                    .with_poll_interval(0.5)
                 ),
             )
-            self._postgres.with_network(self._plc_network)
-            self._postgres.with_network_aliases("plcdb")
-            self._postgres.with_exposed_ports(_POSTGRES_PORT)
-            self._postgres.with_env("POSTGRES_USER", "plc")
-            self._postgres.with_env("POSTGRES_PASSWORD", "plc")
-            self._postgres.with_env("POSTGRES_DB", "plc")
+            self._plc.with_network(self._plc_network)
+            self._plc.with_network_aliases("plc")
+            self._plc.with_exposed_ports(_PLC_PORT)
+            self._plc.with_env("PORT", str(_PLC_PORT))
+            self._plc.with_env("DEBUG_MODE", "1")
+            self._plc.with_env("LOG_ENABLED", "true")
+            self._plc.with_command("yarn run start")
+            self._plc.with_kwargs(working_dir="/app/packages/server")
 
-            self._plc.with_env(
-                "DATABASE_URL",
-                f"postgres://plc:plc@plcdb:{_POSTGRES_PORT}/plc",
-            )
-        else:
-            self._postgres = None
+            # --- Postgres (real mode only) ---
+
+            if plc_mode == "real":
+                self._postgres = DockerContainer(
+                    _POSTGRES_IMAGE,
+                    _wait_strategy=(
+                        ExecWaitStrategy(["sh", "-c", "pg_isready -U plc"])
+                        .with_startup_timeout(30)
+                    ),
+                )
+                self._postgres.with_network(self._plc_network)
+                self._postgres.with_network_aliases("plcdb")
+                self._postgres.with_exposed_ports(_POSTGRES_PORT)
+                self._postgres.with_env("POSTGRES_USER", "plc")
+                self._postgres.with_env("POSTGRES_PASSWORD", "plc")
+                self._postgres.with_env("POSTGRES_DB", "plc")
+
+                self._plc.with_env(
+                    "DATABASE_URL",
+                    f"postgres://plc:plc@plcdb:{_POSTGRES_PORT}/plc",
+                )
+            else:
+                self._postgres = None
 
         # --- Mailpit (capture mode only) ---
 
@@ -142,6 +154,7 @@ class PDSContainer(DockerContainer):
         )
 
         self.with_network(self._plc_network)
+        self.with_network_aliases(self._hostname)
         self.with_exposed_ports(_INTERNAL_PORT)
         self.with_kwargs(tmpfs={"/pds": ""})
         self.with_env("PDS_HOSTNAME", self._hostname)
@@ -158,7 +171,7 @@ class PDSContainer(DockerContainer):
         self.with_env("PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX", self._plc_rotation_key)
         self.with_env("PDS_DATA_DIRECTORY", "/pds")
         self.with_env("PDS_BLOBSTORE_DISK_LOCATION", "/pds/blocks")
-        self.with_env("PDS_DID_PLC_URL", f"http://plc:{_PLC_PORT}")
+        self.with_env("PDS_DID_PLC_URL", _plc_url or f"http://plc:{_PLC_PORT}")
         self.with_env("PDS_SERVICE_HANDLE_DOMAINS", ".test")
         self.with_env("LOG_ENABLED", "true")
 
@@ -166,10 +179,12 @@ class PDSContainer(DockerContainer):
 
     def start(self) -> "PDSContainer":
         """Start the network, companion containers, then the PDS."""
-        self._plc_network.create()
+        if self._owns_network:
+            self._plc_network.create()
         if self._postgres is not None:
             self._postgres.start()
-        self._plc.start()
+        if self._plc is not None:
+            self._plc.start()
         if self._mailpit is not None:
             self._mailpit.start()
         return super().start()
@@ -177,12 +192,14 @@ class PDSContainer(DockerContainer):
     def stop(self, force=True, delete_volume=True) -> None:
         """Stop the PDS, companion containers, then remove the network."""
         super().stop(force, delete_volume)
-        self._plc.stop(force, delete_volume)
+        if self._plc is not None:
+            self._plc.stop(force, delete_volume)
         if self._postgres is not None:
             self._postgres.stop(force, delete_volume)
         if self._mailpit is not None:
             self._mailpit.stop(force, delete_volume)
-        self._plc_network.remove()
+        if self._owns_network:
+            self._plc_network.remove()
 
     # --- Properties ---
 
