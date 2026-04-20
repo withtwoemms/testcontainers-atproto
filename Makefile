@@ -2,7 +2,7 @@
 PROJECTNAME := testcontainers-atproto
 PKGNAME := testcontainers_atproto
 PYTHON ?= 3.12
-SUPPORTED_PYTHONS := 3.10 3.11 3.12 3.13 3.14
+SUPPORTED_PYTHONS := 3.9 3.10 3.11 3.12 3.13 3.14
 UV_VENV ?= .${PROJECTNAME}-${PYTHON}
 UV_INSTALLED := .uv-installed
 DEPS_INSTALLED := ${UV_VENV}/.deps-installed
