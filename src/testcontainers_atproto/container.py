@@ -15,6 +15,7 @@ from testcontainers_atproto.errors import _raise_for_xrpc_status
 
 if TYPE_CHECKING:
     from testcontainers_atproto.firehose import FirehoseSubscription
+    from testcontainers_atproto.rate_limit import RateLimitTarget
 
 _INTERNAL_PORT = 3000
 _PLC_IMAGE = (
@@ -55,6 +56,7 @@ class PDSContainer(DockerContainer):
         admin_password: Optional[str] = None,
         plc_mode: str = "mock",
         email_mode: str = "none",
+        rate_limits: bool = False,
         *,
         _network: Optional[Network] = None,
         _plc_url: Optional[str] = None,
@@ -141,6 +143,14 @@ class PDSContainer(DockerContainer):
         else:
             self._mailpit = None
 
+        # --- Rate limiting ---
+
+        self._rate_limits = rate_limits
+        if rate_limits:
+            self._bypass_key: Optional[str] = secrets.token_hex(16)
+        else:
+            self._bypass_key = None
+
         # --- PDS ---
 
         super().__init__(
@@ -174,6 +184,9 @@ class PDSContainer(DockerContainer):
         self.with_env("PDS_DID_PLC_URL", _plc_url or f"http://plc:{_PLC_PORT}")
         self.with_env("PDS_SERVICE_HANDLE_DOMAINS", ".test")
         self.with_env("LOG_ENABLED", "true")
+        if rate_limits:
+            self.with_env("PDS_RATE_LIMITS_ENABLED", "true")
+            self.with_env("PDS_RATE_LIMIT_BYPASS_KEY", self._bypass_key)
 
     # --- Lifecycle ---
 
@@ -227,6 +240,17 @@ class PDSContainer(DockerContainer):
     def email_mode(self) -> str:
         """The email mode: ``"none"`` or ``"capture"``."""
         return self._email_mode
+
+    @property
+    def bypass_key(self) -> Optional[str]:
+        """Rate limit bypass key, or ``None`` if rate limiting is off."""
+        return self._bypass_key
+
+    def _bypass_headers(self) -> dict[str, str]:
+        """Return bypass header dict if rate limiting is enabled."""
+        if self._bypass_key is not None:
+            return {"x-ratelimit-bypass": self._bypass_key}
+        return {}
 
     # --- Email (capture mode) ---
 
@@ -344,6 +368,7 @@ class PDSContainer(DockerContainer):
         resp = httpx.get(
             f"{self.base_url}/xrpc/{method}",
             params=params,
+            headers=self._bypass_headers(),
             auth=("admin", self._admin_password),
             timeout=10.0,
         )
@@ -357,6 +382,7 @@ class PDSContainer(DockerContainer):
         resp = httpx.post(
             f"{self.base_url}/xrpc/{method}",
             json=data,
+            headers=self._bypass_headers(),
             auth=("admin", self._admin_password),
             timeout=10.0,
         )
@@ -372,7 +398,7 @@ class PDSContainer(DockerContainer):
         auth: Optional[str] = None,
     ) -> dict:
         """Raw XRPC query (HTTP GET)."""
-        headers: dict[str, str] = {}
+        headers: dict[str, str] = {**self._bypass_headers()}
         if auth is not None:
             headers["Authorization"] = f"Bearer {auth}"
         resp = httpx.get(
@@ -400,7 +426,7 @@ class PDSContainer(DockerContainer):
         For JSON payloads, pass *data*. For raw byte payloads (e.g. blob
         upload), pass *content* and *content_type* instead.
         """
-        headers: dict[str, str] = {}
+        headers: dict[str, str] = {**self._bypass_headers()}
         if auth is not None:
             headers["Authorization"] = f"Bearer {auth}"
 
@@ -437,7 +463,7 @@ class PDSContainer(DockerContainer):
         Sync endpoints (``com.atproto.sync.*``) return binary responses
         such as CAR files and blob data, rather than JSON.
         """
-        headers: dict[str, str] = {}
+        headers: dict[str, str] = {**self._bypass_headers()}
         if auth is not None:
             headers["Authorization"] = f"Bearer {auth}"
         resp = httpx.get(
@@ -507,6 +533,52 @@ class PDSContainer(DockerContainer):
         resp = httpx.get(f"{self.base_url}/xrpc/_health", timeout=10.0)
         resp.raise_for_status()
         return resp.json()
+
+    # --- Rate Limiting ---
+
+    def exhaust_rate_limit_budget(
+        self,
+        target: "RateLimitTarget",
+        threshold: Optional[int] = None,
+    ) -> None:
+        """Exhaust the rate limit budget for the given target.
+
+        Makes enough calls (without the bypass header) to consume
+        the full rate limit budget, so the next call from the user's
+        client triggers a 429 response.
+
+        Requires ``rate_limits=True`` on the container.
+
+        Args:
+            target: A :class:`~testcontainers_atproto.rate_limit.RateLimitTarget`
+                instance defining the call to repeat.
+            threshold: Override the number of calls. If ``None``, looks
+                up the threshold from the built-in rate limit mapping.
+
+        Raises:
+            RuntimeError: If rate limiting is not enabled.
+            ValueError: If the target's NSID is not in the mapping
+                and no *threshold* is provided.
+        """
+        from testcontainers_atproto.rate_limit import _RATE_LIMITS
+
+        if not self._rate_limits:
+            raise RuntimeError(
+                "Rate limiting is not enabled. "
+                "Use rate_limits=True to enable rate limit simulation."
+            )
+
+        if threshold is None:
+            limit = _RATE_LIMITS.get(target.nsid)
+            if limit is None:
+                raise ValueError(
+                    f"No rate limit mapping for {target.nsid!r}. "
+                    f"Pass threshold= explicitly."
+                )
+            threshold = limit[0]
+
+        for _ in range(threshold):
+            target(self.base_url)
 
     # --- Firehose ---
 
