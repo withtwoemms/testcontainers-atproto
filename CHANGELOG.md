@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0]
+
+### Added
+
+- `pds_pair` fixture — two federated PDS instances sharing a single PLC directory and Docker network, so DIDs registered on one PDS are resolvable via the shared PLC
+- Private `_network` and `_plc_url` keyword-only parameters on `PDSContainer.__init__` for injecting shared infrastructure in federation mode
+- `_owns_network` flag on `PDSContainer` controlling whether the container manages its own network/PLC lifecycle or delegates to an external caller
+- Hostname-based Docker network aliases — each PDS is DNS-resolvable by its hostname on the shared network
+- Federation integration tests: cross-PDS DID resolution via shared PLC, DID document service endpoint verification, seeding on federated pairs
+
+### Changed
+
+- `PDSContainer.start()` and `stop()` now guard companion container and network lifecycle behind `_owns_network` and null checks — containers with externally-provided networks skip creating/destroying shared resources
+- Classifier updated from `Development Status :: 3 - Alpha` to `Development Status :: 4 - Beta`
+
 ## [0.7.0]
 
 ### Added
@@ -150,7 +165,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions `publish` workflow (main → Test PyPI, tags → Test+Prod PyPI + GitHub Release with changelog-extracted notes)
 
 <!-- Links -->
-[Unreleased]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.7.0...HEAD
+[Unreleased]: https://github.com/withtwoemms/testcontainers-atproto/compare/1.0.0...HEAD
+[1.0.0]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.7.0...1.0.0
 [0.7.0]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.6.0...0.7.0
 [0.6.0]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.5.0...0.6.0
 [0.5.0]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.4.0...0.5.0
