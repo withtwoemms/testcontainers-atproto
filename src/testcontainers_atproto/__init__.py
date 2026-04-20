@@ -9,7 +9,7 @@ from testcontainers_atproto.errors import XrpcError
 from testcontainers_atproto.firehose import FirehoseSubscription
 from testcontainers_atproto.rate_limit import CreateSession, RateLimitTarget
 from testcontainers_atproto.ref import RecordRef
-from testcontainers_atproto.seed import Seed
+from testcontainers_atproto.seed import Seed, seed_from_dict
 from testcontainers_atproto.world import World
 
 __all__ = [
@@ -23,6 +23,7 @@ __all__ = [
     "RecordRef",
     "Seed",
     "World",
+    "seed_from_dict",
     "XrpcError",
     "parse_car",
 ]
