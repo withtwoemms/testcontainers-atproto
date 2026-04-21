@@ -4,13 +4,13 @@ dynamic = ["version"]
 description = "Testcontainers module for AT Protocol PDS integration testing"
 readme = "README.md"
 license = { text = "Apache-2.0" }
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [
     { name = "Emmanuel I. Obi", email = "withtwoemms@gmail.com" },
 ]
 keywords = ["atproto", "bluesky", "pds", "testcontainers", "testing", "integration"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Framework :: Pytest",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
@@ -25,7 +25,7 @@ classifiers = [
     "Topic :: Software Development :: Testing",
 ]
 dependencies = [
-    "testcontainers>=4.0",
+    "testcontainers>=4.14.0",
     "httpx>=0.24",
 ]
 

@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0]
+
+### Added
+
+- `rate_limits` parameter on `PDSContainer`: when `True`, enables PDS rate limiting (`PDS_RATE_LIMITS_ENABLED`) and generates a bypass key (`PDS_RATE_LIMIT_BYPASS_KEY`) so internal library calls (account creation, seeding, etc.) are exempt
+- `PDSContainer.exhaust_rate_limit_budget(target, threshold=)` — fire `threshold` requests via the given target to consume the rate limit budget, so the next unprotected call triggers a 429
+- `PDSContainer.bypass_key` read-only property — exposes the bypass key for selective use in test code
+- `RateLimitTarget` base class — subclass and implement `__call__(base_url)` to define the XRPC call that should be repeated to exhaust a rate limit
+- `CreateSession` concrete target — exhausts the `com.atproto.server.createSession` rate limit (30 calls / 5 min)
+- `_RATE_LIMITS` mapping of XRPC NSIDs to `(max_points, window_seconds)` tuples covering 10 core AT Protocol endpoints
+- `RateLimitTarget` and `CreateSession` added to top-level package exports
+- `pds_pair` fixture — two federated PDS instances sharing a single PLC directory and Docker network, so DIDs registered on one PDS are resolvable via the shared PLC
+- Private `_network` and `_plc_url` keyword-only parameters on `PDSContainer.__init__` for injecting shared infrastructure in federation mode
+- `_owns_network` flag on `PDSContainer` controlling whether the container manages its own network/PLC lifecycle or delegates to an external caller
+- Hostname-based Docker network aliases — each PDS is DNS-resolvable by its hostname on the shared network
+- Federation integration tests: cross-PDS DID resolution via shared PLC, DID document service endpoint verification, seeding on federated pairs
+
+### Changed
+
+- All internal HTTP methods (`xrpc_get`, `xrpc_post`, `admin_get`, `admin_post`, `sync_get`) now include the rate limit bypass header when `rate_limits=True`, ensuring setup calls never consume rate limit budget
+- `PDSContainer.start()` and `stop()` now guard companion container and network lifecycle behind `_owns_network` and null checks — containers with externally-provided networks skip creating/destroying shared resources
+- Classifier updated from `Development Status :: 3 - Alpha` to `Development Status :: 4 - Beta`
+
 ## [0.7.0]
 
 ### Added
@@ -150,7 +173,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions `publish` workflow (main → Test PyPI, tags → Test+Prod PyPI + GitHub Release with changelog-extracted notes)
 
 <!-- Links -->
-[Unreleased]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.7.0...HEAD
+[Unreleased]: https://github.com/withtwoemms/testcontainers-atproto/compare/1.0.0...HEAD
+[1.0.0]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.7.0...1.0.0
 [0.7.0]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.6.0...0.7.0
 [0.6.0]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.5.0...0.6.0
 [0.5.0]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.4.0...0.5.0

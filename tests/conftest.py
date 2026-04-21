@@ -8,7 +8,7 @@ def _docker_available() -> bool:
     try:
         import docker
 
-        client = docker.from_env()
+        client = docker.from_env(version="auto")
         client.ping()
         client.close()
         return True

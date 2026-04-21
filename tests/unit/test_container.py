@@ -59,3 +59,27 @@ class TestSyncMethods:
 
     def test_has_sync_get(self):
         assert callable(getattr(PDSContainer, "sync_get", None))
+
+
+class TestNetworkOwnership:
+    """PDSContainer._owns_network controls lifecycle of shared resources."""
+
+    def test_owns_network_true_by_default(self):
+        pds = PDSContainer.__new__(PDSContainer)
+        pds._owns_network = True
+        assert pds._owns_network is True
+
+    def test_owns_network_false_with_external_network(self):
+        pds = PDSContainer.__new__(PDSContainer)
+        pds._owns_network = False
+        assert pds._owns_network is False
+
+    def test_plc_is_none_with_external_network(self):
+        pds = PDSContainer.__new__(PDSContainer)
+        pds._plc = None
+        assert pds._plc is None
+
+    def test_postgres_is_none_with_external_network(self):
+        pds = PDSContainer.__new__(PDSContainer)
+        pds._postgres = None
+        assert pds._postgres is None

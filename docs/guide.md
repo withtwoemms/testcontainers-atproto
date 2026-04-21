@@ -17,9 +17,11 @@ Spin up ephemeral [PDS](./glossary.md) instances in your Python test suite. [Lex
 9. [Repo Sync](#repo-sync)
 10. [Email Verification and Password Reset](#email-verification-and-password-reset)
 11. [Account Lifecycle and Admin Operations](#account-lifecycle-and-admin-operations)
-12. [Pytest Fixtures](#pytest-fixtures)
-13. [Error Handling](#error-handling)
-14. [API Reference](#api-reference)
+12. [Federation Testing](#federation-testing)
+13. [Rate Limit Simulation](#rate-limit-simulation)
+14. [Pytest Fixtures](#pytest-fixtures)
+15. [Error Handling](#error-handling)
+16. [API Reference](#api-reference)
 
 ---
 
@@ -106,6 +108,9 @@ PDSContainer(email_mode="capture")      PLC ──► PDS ──► Mailpit
 
 PDSContainer(plc_mode="real",           Postgres ──► PLC ──► PDS ──► Mailpit
              email_mode="capture")      (4 containers)
+
+PDSContainer(rate_limits=True)          PLC ──► PDS (rate limiting enabled)
+                                        (2 containers)
 ```
 
 ---
@@ -134,6 +139,7 @@ with PDSContainer() as pds:
 | `admin_password` | auto-generated | Admin password for the PDS |
 | `plc_mode` | `"mock"` | `"mock"` for in-memory [PLC](./glossary.md), `"real"` for Postgres-backed |
 | `email_mode` | `"none"` | `"none"` bypasses email, `"capture"` starts Mailpit |
+| `rate_limits` | `False` | `True` enables PDS rate limiting with bypass key for internal calls |
 
 ### Properties
 
@@ -144,6 +150,7 @@ with PDSContainer() as pds:
 | `host` | `str` | Container hostname as seen from the host machine |
 | `port` | `int` | Mapped port (3000 inside, dynamic outside) |
 | `email_mode` | `str` | `"none"` or `"capture"` |
+| `bypass_key` | `str \| None` | Rate limit bypass key (set when `rate_limits=True`) |
 
 ### PLC modes
 
@@ -743,6 +750,206 @@ pds.disable_invite_codes(codes=["invite-code-1"], accounts=[])
 
 ---
 
+## Federation Testing
+
+The `pds_pair` fixture boots two [PDS](./glossary.md) instances sharing a single [PLC](./glossary.md) directory and Docker network. This mirrors a real federation topology where multiple PDS servers register [DIDs](./glossary.md) in a common directory.
+
+### Architecture
+
+```
+                    ┌─────────────────────────────────────────┐
+                    │        Shared Docker Network            │
+                    │                                         │
+                    │  ┌───────────┐    ┌───────────────────┐ │
+                    │  │  PDS-A    │    │  PLC Directory    │ │
+                    │  │  :3000    │───►│  :2582            │ │
+                    │  │           │    │                   │ │
+                    │  └───────────┘    │  DID registration │ │
+                    │                   │                   │ │
+                    │  ┌───────────┐    │                   │ │
+                    │  │  PDS-B    │───►│                   │ │
+                    │  │  :3000    │    └───────────────────┘ │
+                    │  │           │                          │
+                    │  └───────────┘                          │
+                    └─────────────────────────────────────────┘
+```
+
+### Handle resolution vs. DID resolution
+
+In AT Protocol, handle resolution (`resolveHandle`) is a local operation — each PDS resolves handles from its own database. Cross-PDS discovery works through DIDs:
+
+1. Account creation registers the DID in the shared PLC directory
+2. The DID document contains the `alsoKnownAs` handle and the `atproto_pds` service endpoint
+3. Any participant can resolve a DID via PLC to discover which PDS hosts the account
+
+```python
+def test_federation(pds_pair):
+    pds_a, pds_b = pds_pair
+    alice = pds_a.create_account("alice.test")
+    bob = pds_b.create_account("bob.test")
+
+    # Each PDS resolves its own handles
+    result = pds_a.xrpc_get(
+        "com.atproto.identity.resolveHandle",
+        params={"handle": "alice.test"},
+    )
+    assert result["did"] == alice.did
+
+    # Cross-PDS discovery uses DIDs (the canonical identifier)
+    # DIDs from both PDS instances are in the shared PLC
+    assert alice.did != bob.did
+```
+
+### Seeding on federated pairs
+
+Declarative seeding works independently on each PDS in a federated pair:
+
+```python
+from testcontainers_atproto import Seed
+
+def test_federated_seeding(pds_pair):
+    pds_a, pds_b = pds_pair
+    world_a = (
+        Seed(pds_a)
+        .account("alice.test")
+            .post("Hello from PDS-A")
+        .apply()
+    )
+    world_b = (
+        Seed(pds_b)
+        .account("bob.test")
+            .post("Hello from PDS-B")
+        .apply()
+    )
+    assert len(world_a.records["alice.test"]) == 1
+    assert len(world_b.records["bob.test"]) == 1
+```
+
+---
+
+## Rate Limit Simulation
+
+Test your client's 429-handling and backoff logic against real PDS rate limiting. When `rate_limits=True`, the PDS enforces its built-in rate limits. Internal library calls (account creation, seeding, admin operations) use a bypass header so they never consume rate limit budget — only your test code's direct HTTP calls count.
+
+### Enabling rate limits
+
+```python
+with PDSContainer(rate_limits=True) as pds:
+    alice = pds.create_account("alice.test", password="s3cret")
+    # Account creation used the bypass header — budget is untouched
+```
+
+When `rate_limits=False` (the default), the PDS does not enforce rate limits and no bypass key is generated.
+
+### Exhausting the rate limit budget
+
+Use `exhaust_rate_limit_budget` to consume an endpoint's entire budget. The next unprotected call triggers a 429:
+
+```python
+from testcontainers_atproto import CreateSession, PDSContainer
+
+with PDSContainer(rate_limits=True) as pds:
+    alice = pds.create_account("alice.test", password="s3cret")
+    target = CreateSession(alice.handle, "s3cret")
+
+    # Burns 30 calls (the createSession threshold)
+    pds.exhaust_rate_limit_budget(target)
+
+    # Your client's next call gets rate-limited
+    import httpx
+    resp = httpx.post(
+        f"{pds.base_url}/xrpc/com.atproto.server.createSession",
+        json={"identifier": alice.handle, "password": "s3cret"},
+        timeout=10.0,
+    )
+    assert resp.status_code == 429
+    assert resp.json()["error"] == "RateLimitExceeded"
+```
+
+The 429 response includes standard rate limit headers:
+
+| Header | Description |
+|--------|-------------|
+| `RateLimit-Limit` | Maximum requests allowed in the window |
+| `RateLimit-Remaining` | Requests remaining (0 after exhaustion) |
+| `RateLimit-Reset` | Unix timestamp when the window resets |
+
+### Built-in rate limit mapping
+
+The library maintains a mapping of [XRPC](./glossary.md) endpoints to their tightest rate limit window. For endpoints with multiple windows (e.g. `createSession` has both 30/5min and 300/day), the tightest window is used — that's what triggers first.
+
+| Endpoint | Max calls | Window |
+|----------|-----------|--------|
+| `com.atproto.server.createSession` | 30 | 5 min |
+| `com.atproto.server.createAccount` | 100 | 5 min |
+| `com.atproto.server.resetPassword` | 50 | 5 min |
+| `com.atproto.server.requestPasswordReset` | 15 | 1 hr |
+| `com.atproto.server.deleteAccount` | 5 | 1 hr |
+| `com.atproto.server.requestAccountDelete` | 5 | 1 hr |
+| `com.atproto.server.requestEmailConfirmation` | 5 | 1 hr |
+| `com.atproto.server.requestEmailUpdate` | 5 | 1 hr |
+| `com.atproto.identity.updateHandle` | 10 | 5 min |
+| `com.atproto.repo.uploadBlob` | 1000 | 24 hr |
+
+### Custom endpoints
+
+For endpoints not in the built-in mapping — including custom [Lexicon](./glossary.md) endpoints — subclass `RateLimitTarget` and pass `threshold` explicitly:
+
+```python
+from testcontainers_atproto import RateLimitTarget
+
+class MyEndpoint(RateLimitTarget):
+    nsid = "com.example.heavyEndpoint"
+
+    def __init__(self, auth: str) -> None:
+        self.auth = auth
+
+    def __call__(self, base_url):
+        return httpx.post(
+            f"{base_url}/xrpc/{self.nsid}",
+            json={...},
+            headers={"Authorization": f"Bearer {self.auth}"},
+            timeout=10.0,
+        )
+
+pds.exhaust_rate_limit_budget(MyEndpoint(alice.access_jwt), threshold=50)
+```
+
+The `threshold` parameter overrides the built-in mapping. It's also useful when PDS version differences change the limits.
+
+### Bypass key
+
+The bypass key is exposed via `pds.bypass_key` for cases where test code needs selective bypass access:
+
+```python
+resp = httpx.post(
+    f"{pds.base_url}/xrpc/com.atproto.server.createSession",
+    json={"identifier": alice.handle, "password": "s3cret"},
+    headers={"x-ratelimit-bypass": pds.bypass_key},
+    timeout=10.0,
+)
+assert resp.status_code == 200  # bypassed, not rate-limited
+```
+
+### Rate limit methods
+
+| Method | Description |
+|--------|-------------|
+| `exhaust_rate_limit_budget(target, threshold=)` | Fire `threshold` requests to consume the budget |
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `bypass_key` | `str \| None` | The bypass key (`None` when `rate_limits=False`) |
+
+### Rate limit classes
+
+| Class | Description |
+|-------|-------------|
+| `RateLimitTarget` | Base class — subclass and implement `__call__(base_url)` |
+| `CreateSession` | Concrete target for `com.atproto.server.createSession` |
+
+---
+
 ## Pytest Fixtures
 
 After installing the package, these fixtures are available automatically via the `pytest11` entry point — no imports needed:
@@ -751,7 +958,7 @@ After installing the package, these fixtures are available automatically via the
 |---------|-------|-------------|
 | `pds` | function | Fresh [PDS](./glossary.md) instance per test |
 | `pds_module` | module | Shared PDS instance within a test module |
-| `pds_pair` | function | Two PDS instances for federation testing |
+| `pds_pair` | function | Two federated PDS instances sharing a [PLC](./glossary.md) directory |
 | `pds_image` | session | PDS image tag (override via `ATP_PDS_IMAGE` env var) |
 
 ```python
@@ -808,6 +1015,8 @@ with PDSContainer() as pds:
 | `Seed` | `seed` | Fluent builder for declarative PDS state |
 | `World` | `world` | Frozen dataclass of materialized seed state |
 | `FirehoseSubscription` | `firehose` | WebSocket client for `subscribeRepos` with [CBOR](./glossary.md) decoding |
+| `RateLimitTarget` | `rate_limit` | Base class for rate limit exhaustion targets |
+| `CreateSession` | `rate_limit` | Concrete target for `createSession` rate limit |
 | `XrpcError` | `errors` | Structured exception for [XRPC](./glossary.md) failures |
 
 ### Functions
@@ -829,6 +1038,8 @@ from testcontainers_atproto import (
     Seed,
     World,
     FirehoseSubscription,
+    RateLimitTarget,
+    CreateSession,
     XrpcError,
 )
 ```

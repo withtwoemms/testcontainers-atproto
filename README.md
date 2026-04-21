@@ -199,6 +199,71 @@ world = pds.seed({
 })
 ```
 
+### Federation testing
+
+Test cross-PDS scenarios with two PDS instances sharing a PLC directory:
+
+```python
+def test_cross_pds_resolution(pds_pair):
+    pds_a, pds_b = pds_pair
+    alice = pds_a.create_account("alice.test")
+    bob = pds_b.create_account("bob.test")
+
+    # Each PDS resolves its own handles
+    assert pds_a.xrpc_get(
+        "com.atproto.identity.resolveHandle",
+        params={"handle": "alice.test"},
+    )["did"] == alice.did
+
+    # DIDs from both PDS instances are registered in the shared PLC
+    assert alice.did != bob.did
+    assert alice.did.startswith("did:plc:")
+    assert bob.did.startswith("did:plc:")
+```
+
+The `pds_pair` fixture creates a shared Docker network and PLC directory. Handle resolution is local to each PDS; cross-PDS discovery uses DIDs resolved through the shared PLC.
+
+### Rate limit simulation
+
+Test your client's 429-handling and backoff logic against real PDS rate limiting:
+
+```python
+from testcontainers_atproto import CreateSession, PDSContainer
+
+with PDSContainer(rate_limits=True) as pds:
+    alice = pds.create_account("alice.test", password="s3cret")
+    target = CreateSession(alice.handle, "s3cret")
+
+    # Burn through the rate limit budget (30 calls for createSession)
+    pds.exhaust_rate_limit_budget(target)
+
+    # The next call triggers a 429
+    import httpx
+    resp = httpx.post(
+        f"{pds.base_url}/xrpc/com.atproto.server.createSession",
+        json={"identifier": alice.handle, "password": "s3cret"},
+        timeout=10.0,
+    )
+    assert resp.status_code == 429
+    assert resp.json()["error"] == "RateLimitExceeded"
+```
+
+When `rate_limits=False` (the default), rate limiting is disabled and no bypass key is generated. Internal library calls (account creation, seeding, etc.) always use a bypass header so they never consume rate limit budget.
+
+For custom endpoints, subclass `RateLimitTarget`:
+
+```python
+from testcontainers_atproto import RateLimitTarget
+
+class MyEndpoint(RateLimitTarget):
+    nsid = "com.example.heavyEndpoint"
+
+    def __call__(self, base_url):
+        return httpx.post(f"{base_url}/xrpc/{self.nsid}", ...)
+
+pds.exhaust_rate_limit_budget(MyEndpoint(), threshold=50)
+```
+
 ### Email verification
 
 Test email verification and password reset flows with a local Mailpit SMTP server:
