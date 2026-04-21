@@ -28,7 +28,7 @@ testcontainers-atproto is a testing infrastructure module for anyone building on
 | v0.5.0 | Email Verification + Password Reset | Complete |
 | v0.6.0 | Account Lifecycle + Admin Operations | Complete |
 | v0.7.0 | Repo Sync | Complete |
-| v1.0.0 | Federation + Stability | Complete |
+| v0.8.0 | Federation + Rate Limiting | Complete |
 
 ---
 
@@ -65,7 +65,7 @@ testcontainers-atproto is a testing infrastructure module for anyone building on
 - [x] `Account.access_jwt` and `Account.refresh_jwt` public properties
 - [x] Handle-domain resolution: `PDS_SERVICE_HANDLE_DOMAINS=".test"` for test handles
 - [x] Docker-gated integration tests (`test_container.py`, `test_create_account.py`)
-- [x] Local PLC directory on a shared Docker network — no public internet dependency (pulled forward from v1.0.0)
+- [x] Local PLC directory on a shared Docker network — no public internet dependency (pulled forward from v0.8.0)
 - [x] `plc_mode` parameter: `"mock"` (default, in-memory PLC) or `"real"` (Postgres-backed PLC)
 
 **Outcomes:**
@@ -222,9 +222,9 @@ The firehose (v0.3.0) provides incremental event notification. Repo sync provide
 
 ---
 
-## v1.0.0 — Federation + Stability (Complete)
+## v0.8.0 — Federation + Rate Limiting (Complete)
 
-**Theme:** Multi-PDS federation testing and API stability commitment.
+**Theme:** Multi-PDS federation testing and rate limit simulation.
 
 - [x] ~~Mock PLC directory~~ — delivered in v0.1.0 (`plc_mode="mock"` and `plc_mode="real"`)
 - [x] `pds_pair` fixture — two PDS instances sharing a single PLC directory and Docker network
@@ -232,18 +232,20 @@ The firehose (v0.3.0) provides incremental event notification. Repo sync provide
 - [x] `_owns_network` flag controlling lifecycle ownership (standalone vs. federation mode)
 - [x] Hostname-based Docker network aliases for cross-PDS DNS resolution
 - [x] Cross-PDS DID resolution via shared PLC directory
-- [x] API audit — 10 classes, 4 fixtures, consistent patterns throughout
+- [x] `rate_limits` parameter on `PDSContainer` with bypass key for internal calls
+- [x] `exhaust_rate_limit_budget` method with `RateLimitTarget` callable class pattern
+- [x] `CreateSession` concrete target and `_RATE_LIMITS` endpoint mapping
 - [x] Classifier updated to `Beta`
 
 **Outcomes:**
 - Federation scenarios testable with the `pds_pair` fixture — DIDs registered on one PDS are resolvable via the shared PLC from the other
 - DID documents correctly record which PDS hosts each account
 - Declarative seeding works independently on each PDS in a federated pair
-- Stable API surface with semantic versioning commitment — no breaking changes without a major version bump
+- Client developers can test 429-handling and backoff logic against real PDS rate limiting
 
 ---
 
-## Post-1.0 Vision
+## Future Vision
 
 | Feature | Notes |
 |---------|-------|
