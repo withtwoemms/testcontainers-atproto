@@ -816,6 +816,18 @@ wheels = [
 ]
 
 [[package]]
+name = "pyjwt"
+version = "2.12.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c2/27/a3b6e5bf6ff856d2509292e95c8f57f0df7017cf5394921fc4e4ef40308a/pyjwt-2.12.1.tar.gz", hash = "sha256:c74a7a2adf861c04d002db713dd85f84beb242228e671280bf709d765b03672b", size = 102564, upload-time = "2026-03-13T19:27:37.25Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e5/7a/8dd906bd22e79e47397a61742927f6747fe93242ef86645ee9092e610244/pyjwt-2.12.1-py3-none-any.whl", hash = "sha256:28ca37c070cad8ba8cd9790cd940535d40274d22f80ab87f3ac6a713e6e8454c", size = 29726, upload-time = "2026-03-13T19:27:35.677Z" },
+]
+
+[[package]]
 name = "pytest"
 version = "9.0.3"
 source = { registry = "https://pypi.org/simple" }
@@ -907,11 +919,17 @@ dependencies = [
 all = [
     { name = "atproto" },
     { name = "cbor2" },
+    { name = "cryptography" },
+    { name = "pyjwt" },
     { name = "websockets" },
 ]
 firehose = [
     { name = "cbor2" },
     { name = "websockets" },
+]
+oauth = [
+    { name = "cryptography" },
+    { name = "pyjwt" },
 ]
 sdk = [
     { name = "atproto" },
@@ -923,6 +941,8 @@ test = [
     { name = "atproto" },
     { name = "cbor2" },
     { name = "coverage" },
+    { name = "cryptography" },
+    { name = "pyjwt" },
     { name = "pytest" },
     { name = "websockets" },
 ]
@@ -933,14 +953,16 @@ requires-dist = [
     { name = "cbor2", marker = "extra == 'firehose'", specifier = ">=5.0" },
     { name = "cbor2", marker = "extra == 'sync'", specifier = ">=5.0" },
     { name = "coverage", marker = "extra == 'test'", specifier = ">=7.0" },
+    { name = "cryptography", marker = "extra == 'oauth'", specifier = ">=41.0" },
     { name = "httpx", specifier = ">=0.24" },
+    { name = "pyjwt", marker = "extra == 'oauth'", specifier = ">=2.8" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=7.0" },
     { name = "testcontainers", specifier = ">=4.14.0" },
     { name = "testcontainers-atproto", extras = ["all"], marker = "extra == 'test'" },
-    { name = "testcontainers-atproto", extras = ["firehose", "sdk", "sync"], marker = "extra == 'all'" },
+    { name = "testcontainers-atproto", extras = ["firehose", "oauth", "sdk", "sync"], marker = "extra == 'all'" },
     { name = "websockets", marker = "extra == 'firehose'", specifier = ">=12.0" },
 ]
-provides-extras = ["firehose", "sync", "sdk", "all", "test"]
+provides-extras = ["firehose", "sync", "sdk", "oauth", "all", "test"]
 
 [[package]]
 name = "tomli"
