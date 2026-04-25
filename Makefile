@@ -91,12 +91,28 @@ endif
 .PHONY: test-unit
 test-unit: ${DEPS_INSTALLED}
 	@echo "${GREEN}Running unit tests with Python ${PYTHON}...${RESET}"
+ifeq ($(COVERAGE),true)
+	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} coverage run --source=${PKGNAME} --branch \
+		--omit="**/tests/*,**/site-packages/*.py,setup.py" \
+		-m pytest tests/unit/ -q
+	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} coverage report -m
+	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} coverage xml
+else
 	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} -m pytest tests/unit/ -q
+endif
 
 .PHONY: test-integration
 test-integration: ${DEPS_INSTALLED}
 	@echo "${GREEN}Running integration tests with Python ${PYTHON}...${RESET}"
+ifeq ($(COVERAGE),true)
+	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} coverage run --source=${PKGNAME} --branch \
+		--omit="**/tests/*,**/site-packages/*.py,setup.py" \
+		-m pytest tests/integration/ -q
+	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} coverage report -m
+	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} coverage xml
+else
 	@UV_PROJECT_ENVIRONMENT=${UV_VENV} uv run --python ${PYTHON} -m pytest tests/integration/ -q
+endif
 
 .PHONY: test-all
 test-all: ${UV_INSTALLED}

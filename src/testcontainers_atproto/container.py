@@ -15,6 +15,7 @@ from testcontainers_atproto.errors import _raise_for_xrpc_status
 
 if TYPE_CHECKING:
     from testcontainers_atproto.firehose import FirehoseSubscription
+    from testcontainers_atproto.oauth import DPoPKey, OAuthClient, OAuthTokens
     from testcontainers_atproto.rate_limit import RateLimitTarget
 
 _INTERNAL_PORT = 3000
@@ -359,6 +360,7 @@ class PDSContainer(DockerContainer):
             access_jwt=data["accessJwt"],
             refresh_jwt=data["refreshJwt"],
             email=email,
+            password=password,
         )
 
     # --- Raw XRPC ---
@@ -604,6 +606,68 @@ class PDSContainer(DockerContainer):
             f"/xrpc/com.atproto.sync.subscribeRepos?cursor={cursor}"
         )
         return FirehoseSubscription(ws_url)
+
+    # --- OAuth ---
+
+    def oauth_client(
+        self,
+        dpop_key: Optional["DPoPKey"] = None,
+        client_id: Optional[str] = None,
+        scope: str = "atproto transition:generic",
+    ) -> "OAuthClient":
+        """Create an :class:`~testcontainers_atproto.oauth.OAuthClient` for this PDS.
+
+        Requires the ``oauth`` optional dependency group.
+        Install with: ``pip install testcontainers-atproto[oauth]``
+
+        Args:
+            dpop_key: A :class:`DPoPKey` for DPoP proofs. If ``None``,
+                a new key is generated.
+            client_id: OAuth client ID. Defaults to the localhost format.
+            scope: OAuth scope string.
+        """
+        from testcontainers_atproto.oauth import DPoPKey, OAuthClient, _check_deps
+
+        _check_deps()
+        if dpop_key is None:
+            dpop_key = DPoPKey.generate()
+
+        kwargs: dict = {"base_url": self.base_url, "dpop_key": dpop_key, "scope": scope}
+        if client_id is not None:
+            kwargs["client_id"] = client_id
+        return OAuthClient(**kwargs)
+
+    def oauth_authenticate(
+        self,
+        account: Account,
+        dpop_key: Optional["DPoPKey"] = None,
+        scope: str = "atproto transition:generic",
+    ) -> tuple["OAuthClient", "OAuthTokens"]:
+        """Run the full OAuth DPoP flow for an account.
+
+        Convenience method that creates an :class:`OAuthClient`, runs the
+        full PAR → sign-in → consent → token exchange flow, and returns both
+        the client (for making DPoP-authenticated requests) and the tokens.
+
+        Requires the ``oauth`` extra and that the account has a non-empty
+        :attr:`~Account.password`.
+
+        Args:
+            account: An :class:`Account` (must have ``password`` set).
+            dpop_key: A :class:`DPoPKey`. If ``None``, a new key is generated.
+            scope: OAuth scope string.
+
+        Returns:
+            A ``(client, tokens)`` tuple.
+        """
+        if not account.password:
+            raise ValueError(
+                "Account has no password stored. "
+                "Pass password= when calling create_account()."
+            )
+        oauth = self.oauth_client(dpop_key=dpop_key, scope=scope)
+        tokens = oauth.authenticate(account.handle, account.password)
+        return oauth, tokens
 
     def seed(self, spec: dict) -> "World":
         """Materialize PDS state from a dict specification.

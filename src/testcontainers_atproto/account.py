@@ -22,6 +22,7 @@ class Account:
         access_jwt: str,
         refresh_jwt: str,
         email: str = "",
+        password: str = "",
     ) -> None:
         self._pds = pds
         self._did = did
@@ -29,6 +30,7 @@ class Account:
         self._access_jwt = access_jwt
         self._refresh_jwt = refresh_jwt
         self._email = email
+        self._password = password
 
     # --- Properties ---
 
@@ -56,6 +58,11 @@ class Account:
     def email(self) -> str:
         """The account's email address."""
         return self._email
+
+    @property
+    def password(self) -> str:
+        """The account's password (as provided at creation time)."""
+        return self._password
 
     # --- Record Operations ---
 

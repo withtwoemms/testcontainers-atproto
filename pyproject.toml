@@ -33,7 +33,8 @@ dependencies = [
 firehose = ["websockets>=12.0", "cbor2>=5.0"]
 sync = ["cbor2>=5.0"]
 sdk = ["atproto>=0.0.50"]
-all = ["testcontainers-atproto[firehose,sync,sdk]"]
+oauth = ["cryptography>=41.0", "PyJWT>=2.8"]
+all = ["testcontainers-atproto[firehose,sync,sdk,oauth]"]
 test = [
     "pytest>=7.0",
     "coverage>=7.0",

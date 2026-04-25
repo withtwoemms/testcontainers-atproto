@@ -7,6 +7,12 @@ from testcontainers_atproto.car import CarBlock, CarFile, parse_car
 from testcontainers_atproto.container import PDSContainer
 from testcontainers_atproto.errors import XrpcError
 from testcontainers_atproto.firehose import FirehoseSubscription
+from testcontainers_atproto.oauth import (
+    DPoPKey,
+    OAuthClient,
+    OAuthTokens,
+    PKCEChallenge,
+)
 from testcontainers_atproto.rate_limit import CreateSession, RateLimitTarget
 from testcontainers_atproto.ref import RecordRef
 from testcontainers_atproto.seed import Seed, seed_from_dict
@@ -17,8 +23,12 @@ __all__ = [
     "CarBlock",
     "CarFile",
     "CreateSession",
+    "DPoPKey",
     "FirehoseSubscription",
+    "OAuthClient",
+    "OAuthTokens",
     "PDSContainer",
+    "PKCEChallenge",
     "RateLimitTarget",
     "RecordRef",
     "Seed",
