@@ -23,6 +23,7 @@ Requires Python 3.10+ and a running Docker daemon.
 | `testcontainers-atproto[firehose]` | `websockets`, `cbor2` for firehose subscription |
 | `testcontainers-atproto[sync]` | `cbor2` for CAR file parsing |
 | `testcontainers-atproto[sdk]` | `atproto` (MarshalX SDK) for high-level record ops |
+| `testcontainers-atproto[oauth]` | `cryptography`, `PyJWT` for OAuth DPoP flow testing |
 | `testcontainers-atproto[all]` | All of the above |
 
 ---
@@ -263,6 +264,66 @@ class MyEndpoint(RateLimitTarget):
 
 pds.exhaust_rate_limit_budget(MyEndpoint(), threshold=50)
 ```
+
+### OAuth DPoP authentication
+
+Test OAuth client implementations end-to-end with DPoP (Demonstration of Proof-of-Possession) bound tokens:
+
+```python
+from testcontainers_atproto import PDSContainer
+
+with PDSContainer() as pds:
+    alice = pds.create_account("alice.test", password="hunter2")
+
+    # Full flow in one call — returns an OAuthClient + tokens
+    client, tokens = pds.oauth_authenticate(alice)
+
+    # Use DPoP-authenticated XRPC calls
+    resp = client.xrpc_get(
+        "com.atproto.repo.describeRepo",
+        tokens.access_token,
+        params={"repo": alice.did},
+    )
+    assert resp["handle"] == "alice.test"
+
+    # Create records via OAuth
+    client.xrpc_post(
+        "com.atproto.repo.createRecord",
+        tokens.access_token,
+        data={
+            "repo": alice.did,
+            "collection": "app.bsky.feed.post",
+            "record": {
+                "$type": "app.bsky.feed.post",
+                "text": "posted via OAuth DPoP",
+                "createdAt": "2026-01-01T00:00:00Z",
+            },
+        },
+    )
+
+    # Token refresh
+    new_tokens = client.refresh_tokens(tokens.refresh_token)
+
+    # Token revocation
+    client.revoke_token(new_tokens.access_token)
+```
+
+For step-by-step control over each phase of the flow:
+
+```python
+from testcontainers_atproto import DPoPKey, PKCEChallenge, PDSContainer
+
+with PDSContainer() as pds:
+    alice = pds.create_account("alice.test", password="hunter2")
+    client = pds.oauth_client()
+
+    pkce = PKCEChallenge.generate()
+    request_uri = client.pushed_authorization_request(pkce, login_hint="alice.test")
+    code = client.authorize(request_uri, "alice.test", "hunter2")
+    tokens = client.token_exchange(code, pkce)
+```
+
+Requires the oauth extra: `pip install testcontainers-atproto[oauth]`
 
 ### Email verification
 
