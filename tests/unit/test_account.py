@@ -39,9 +39,17 @@ class TestAccountProperties:
         account = self._make_account()
         assert account.email == ""
 
+    def test_password(self):
+        account = self._make_account(password="hunter2")
+        assert account.password == "hunter2"
+
+    def test_password_defaults_to_empty_string(self):
+        account = self._make_account()
+        assert account.password == ""
+
     def test_properties_are_readonly(self):
         account = self._make_account()
-        for attr in ("did", "handle", "access_jwt", "refresh_jwt", "email"):
+        for attr in ("did", "handle", "access_jwt", "refresh_jwt", "email", "password"):
             with pytest.raises(AttributeError):
                 setattr(account, attr, "overwritten")
 

@@ -6,8 +6,12 @@ from testcontainers_atproto import (
     Account,
     CarBlock,
     CarFile,
+    DPoPKey,
     FirehoseSubscription,
+    OAuthClient,
+    OAuthTokens,
     PDSContainer,
+    PKCEChallenge,
     RecordRef,
     Seed,
     World,
@@ -20,8 +24,12 @@ def test_top_level_exports_are_classes():
     assert isinstance(Account, type)
     assert isinstance(CarBlock, type)
     assert isinstance(CarFile, type)
+    assert isinstance(DPoPKey, type)
     assert isinstance(FirehoseSubscription, type)
+    assert isinstance(OAuthClient, type)
+    assert isinstance(OAuthTokens, type)
     assert isinstance(PDSContainer, type)
+    assert isinstance(PKCEChallenge, type)
     assert isinstance(RecordRef, type)
     assert isinstance(Seed, type)
     assert isinstance(World, type)
