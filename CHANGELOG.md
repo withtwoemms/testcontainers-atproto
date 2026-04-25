@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0]
+
+### Added
+
+- OAuth DPoP (Demonstration of Proof-of-Possession) flow testing — full end-to-end OAuth authentication against a real PDS, including PAR, programmatic sign-in/consent, token exchange, refresh, and revocation
+- `OAuthClient` — flow client handling OAuth metadata discovery, Pushed Authorization Requests, programmatic authorization (sign-in + consent), token exchange, token refresh, token revocation, and DPoP-authenticated XRPC calls
+- `OAuthClient.discover()` — fetch OAuth authorization server metadata from the PDS
+- `OAuthClient.pushed_authorization_request(pkce, state=, login_hint=)` — submit a PAR, return `request_uri`
+- `OAuthClient.authorize(request_uri, username, password)` — programmatic sign-in and consent, handling CSRF cookies, `Sec-Fetch-Mode` headers, and ephemeral bearer tokens internally
+- `OAuthClient.token_exchange(code, pkce)` — exchange authorization code for DPoP-bound tokens
+- `OAuthClient.authenticate(username, password, state=)` — full flow in one call (PAR + authorize + token exchange)
+- `OAuthClient.refresh_tokens(refresh_token)` — refresh tokens with DPoP proof
+- `OAuthClient.revoke_token(token)` — revoke an access or refresh token
+- `OAuthClient.xrpc_get(method, access_token, params=)` and `xrpc_post(method, access_token, data=, content=, content_type=)` — DPoP-authenticated XRPC calls with automatic nonce negotiation
+- `OAuthClient.dpop_get(url, access_token, params=)` and `dpop_post(url, access_token, json=, content=, content_type=)` — low-level DPoP-authenticated HTTP methods
+- `DPoPKey` — ES256 (P-256) key pair with `generate()` classmethod, `public_jwk` property, `proof()` method for DPoP JWT creation, and `access_token_hash()` static method
+- `PKCEChallenge` — frozen dataclass with `generate()` classmethod producing S256 verifier/challenge pairs (stdlib only, no extra dependencies)
+- `OAuthTokens` — frozen dataclass for token responses: `access_token`, `token_type`, `refresh_token`, `scope`, `expires_in`, `sub`
+- `PDSContainer.oauth_client(dpop_key=, client_id=, scope=)` — factory method creating an `OAuthClient` bound to the container
+- `PDSContainer.oauth_authenticate(account, dpop_key=, scope=)` — convenience method running the full OAuth flow, returns `(OAuthClient, OAuthTokens)`
+- `Account.password` read-only property — stores the password provided at creation time (empty string when no explicit password was given)
+- `oauth` optional dependency extra: `cryptography>=41.0`, `PyJWT>=2.8`
+- `DPoPKey`, `OAuthClient`, `OAuthTokens`, `PKCEChallenge` added to top-level package exports
+- DPoP, PAR, and PKCE entries added to glossary (`docs/glossary.md`)
+- Integration tests: OAuth metadata discovery, full flow (authenticate + convenience method + step-by-step), DPoP-authenticated XRPC GET/POST, token refresh round-trip, token revocation
+- Unit tests: `PKCEChallenge` (generation, S256 verification, determinism, length), `DPoPKey` (generation, public JWK structure, proof JWT structure, nonce/ath claims, access token hash), `OAuthTokens` (from_response parsing), internal URL rewriting
+
+### Changed
+
+- `Account.__init__` now accepts an optional `password` keyword argument, stored as `_password` and exposed via the `password` property
+- `PDSContainer.create_account` now passes the `password` keyword through to `Account()`
+- `oauth` extra included in the `all` meta-extra
+
 ## [0.8.0]
 
 ### Added
@@ -173,7 +206,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions `publish` workflow (main → Test PyPI, tags → Test+Prod PyPI + GitHub Release with changelog-extracted notes)
 
 <!-- Links -->
-[Unreleased]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.8.0...HEAD
+[Unreleased]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.9.0...HEAD
+[0.9.0]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.8.0...0.9.0
 [0.8.0]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.7.0...0.8.0
 [0.7.0]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.6.0...0.7.0
 [0.6.0]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.5.0...0.6.0
