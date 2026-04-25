@@ -15,13 +15,14 @@ Spin up ephemeral [PDS](./glossary.md) instances in your Python test suite. [Lex
 7. [Declarative Seeding](#declarative-seeding)
 8. [Firehose Subscription](#firehose-subscription)
 9. [Repo Sync](#repo-sync)
-10. [Email Verification and Password Reset](#email-verification-and-password-reset)
-11. [Account Lifecycle and Admin Operations](#account-lifecycle-and-admin-operations)
-12. [Federation Testing](#federation-testing)
-13. [Rate Limit Simulation](#rate-limit-simulation)
-14. [Pytest Fixtures](#pytest-fixtures)
-15. [Error Handling](#error-handling)
-16. [API Reference](#api-reference)
+10. [OAuth DPoP Authentication](#oauth-dpop-authentication)
+11. [Email Verification and Password Reset](#email-verification-and-password-reset)
+12. [Account Lifecycle and Admin Operations](#account-lifecycle-and-admin-operations)
+13. [Federation Testing](#federation-testing)
+14. [Rate Limit Simulation](#rate-limit-simulation)
+15. [Pytest Fixtures](#pytest-fixtures)
+16. [Error Handling](#error-handling)
+17. [API Reference](#api-reference)
 
 ---
 
@@ -40,6 +41,7 @@ Requires Python 3.10+ and a running Docker daemon.
 | `testcontainers-atproto[firehose]` | `websockets`, `cbor2` for firehose subscription |
 | `testcontainers-atproto[sync]` | `cbor2` for CAR file parsing |
 | `testcontainers-atproto[sdk]` | `atproto` (MarshalX SDK) for high-level record ops |
+| `testcontainers-atproto[oauth]` | `cryptography`, `PyJWT` for OAuth DPoP flow testing |
 | `testcontainers-atproto[all]` | All of the above |
 
 ---
@@ -195,6 +197,7 @@ with PDSContainer() as pds:
 | `access_jwt` | `str` | Access [JWT](./glossary.md) for authenticated requests |
 | `refresh_jwt` | `str` | Refresh [JWT](./glossary.md) for token rotation |
 | `email` | `str` | Email address used during creation |
+| `password` | `str` | Password used during creation (empty if auto-generated without explicit `password=`) |
 
 All properties are read-only.
 
@@ -534,6 +537,169 @@ car_bytes = pds.sync_get(
 | `CarFile` | Frozen dataclass: `version`, `roots`, `blocks` |
 | `CarBlock` | Frozen dataclass: `cid` (bytes), `data` (bytes) |
 | `parse_car(data)` | Parse CAR v1 bytes into a `CarFile` |
+
+---
+
+## OAuth DPoP Authentication
+
+Test OAuth client implementations end-to-end with [DPoP](./glossary.md) (Demonstration of Proof-of-Possession) bound tokens. This is the modern AT Protocol authentication flow, replacing legacy Bearer [JWT](./glossary.md) sessions.
+
+Requires the oauth extra: `pip install testcontainers-atproto[oauth]`
+
+### Quick start
+
+```python
+from testcontainers_atproto import PDSContainer
+
+with PDSContainer() as pds:
+    alice = pds.create_account("alice.test", password="hunter2")
+    client, tokens = pds.oauth_authenticate(alice)
+
+    # DPoP-authenticated XRPC calls
+    resp = client.xrpc_get(
+        "com.atproto.repo.describeRepo",
+        tokens.access_token,
+        params={"repo": alice.did},
+    )
+    assert resp["handle"] == "alice.test"
+```
+
+`oauth_authenticate` runs the full OAuth flow: Pushed Authorization Request (PAR), programmatic sign-in, consent, and token exchange. It returns an `OAuthClient` (for making DPoP-authenticated requests) and `OAuthTokens` (the token response).
+
+### How the flow works
+
+The AT Protocol OAuth flow with DPoP has these steps:
+
+1. **PAR** — Push an authorization request to the PDS, receiving a `request_uri`
+2. **Authorization page** — Load the page to get session cookies (CSRF token, device ID)
+3. **Sign-in** — POST credentials to the PDS authorization API
+4. **Consent** — POST consent approval, receiving a redirect URL with an authorization code
+5. **Token exchange** — Exchange the code + PKCE verifier for DPoP-bound tokens
+6. **Authenticated requests** — Use `Authorization: DPoP <token>` + `DPoP: <proof>` headers
+
+All steps are handled automatically by `OAuthClient`. The DPoP proof includes the HTTP method and target URL, binding each token to a specific key pair.
+
+### Step-by-step flow
+
+For testing individual phases or error conditions at each step:
+
+```python
+from testcontainers_atproto import DPoPKey, OAuthClient, PKCEChallenge, PDSContainer
+
+with PDSContainer() as pds:
+    alice = pds.create_account("alice.test", password="hunter2")
+
+    # Create client with explicit key
+    dpop_key = DPoPKey.generate()
+    client = pds.oauth_client(dpop_key=dpop_key)
+
+    # 1. PAR
+    pkce = PKCEChallenge.generate()
+    request_uri = client.pushed_authorization_request(
+        pkce, state="my-state", login_hint="alice.test",
+    )
+
+    # 2-4. Sign-in + consent → authorization code
+    code = client.authorize(request_uri, "alice.test", "hunter2")
+
+    # 5. Token exchange
+    tokens = client.token_exchange(code, pkce)
+    assert tokens.token_type == "DPoP"
+    assert tokens.sub == alice.did
+```
+
+### DPoP-authenticated XRPC calls
+
+After obtaining tokens, use the client for authenticated requests:
+
+```python
+    # Read
+    repo = client.xrpc_get(
+        "com.atproto.repo.describeRepo",
+        tokens.access_token,
+        params={"repo": alice.did},
+    )
+
+    # Write
+    result = client.xrpc_post(
+        "com.atproto.repo.createRecord",
+        tokens.access_token,
+        data={
+            "repo": alice.did,
+            "collection": "app.bsky.feed.post",
+            "record": {
+                "$type": "app.bsky.feed.post",
+                "text": "posted via OAuth DPoP",
+                "createdAt": "2026-01-01T00:00:00Z",
+            },
+        },
+    )
+```
+
+DPoP nonce negotiation and proof generation are handled automatically. Each request includes a fresh DPoP proof JWT signed with the client's key pair.
+
+### Token refresh
+
+```python
+    new_tokens = client.refresh_tokens(tokens.refresh_token)
+    assert new_tokens.access_token != tokens.access_token
+    assert new_tokens.sub == alice.did
+
+    # The new token works
+    client.xrpc_get(
+        "com.atproto.repo.describeRepo",
+        new_tokens.access_token,
+        params={"repo": alice.did},
+    )
+```
+
+### Token revocation
+
+```python
+    client.revoke_token(tokens.access_token)
+```
+
+### Scopes
+
+The default scope is `atproto transition:generic`, which grants both read and write access. You can customize the scope:
+
+```python
+    client = pds.oauth_client(scope="atproto")  # read-only
+```
+
+The `transition:generic` scope is required for write operations (record creation, updates, deletes). Without it, writes return a 403 `ScopeMissingError`.
+
+### OAuthClient methods
+
+| Method | Description |
+|--------|-------------|
+| `discover()` | Fetch OAuth authorization server metadata |
+| `pushed_authorization_request(pkce, state=, login_hint=)` | Submit a PAR, return `request_uri` |
+| `authorize(request_uri, username, password)` | Programmatic sign-in + consent, return authorization code |
+| `token_exchange(code, pkce)` | Exchange code for tokens |
+| `authenticate(username, password, state=)` | Full flow in one call (PAR + authorize + token exchange) |
+| `refresh_tokens(refresh_token)` | Refresh tokens |
+| `revoke_token(token)` | Revoke an access or refresh token |
+| `xrpc_get(method, access_token, params=)` | DPoP-authenticated XRPC query |
+| `xrpc_post(method, access_token, data=, content=, content_type=)` | DPoP-authenticated XRPC procedure |
+| `dpop_get(url, access_token, params=)` | Low-level DPoP GET (takes full URL) |
+| `dpop_post(url, access_token, json=, content=, content_type=)` | Low-level DPoP POST (takes full URL) |
+
+### PDSContainer convenience methods
+
+| Method | Description |
+|--------|-------------|
+| `oauth_client(dpop_key=, client_id=, scope=)` | Create an `OAuthClient` for this PDS |
+| `oauth_authenticate(account, dpop_key=, scope=)` | Full OAuth flow, returns `(OAuthClient, OAuthTokens)` |
+
+### OAuth classes
+
+| Class | Module | Description |
+|-------|--------|-------------|
+| `OAuthClient` | `oauth` | OAuth DPoP flow client with XRPC helpers |
+| `OAuthTokens` | `oauth` | Frozen dataclass: `access_token`, `token_type`, `refresh_token`, `scope`, `expires_in`, `sub` |
+| `DPoPKey` | `oauth` | ES256 key pair with DPoP proof generation |
+| `PKCEChallenge` | `oauth` | Frozen dataclass: `verifier`, `challenge` (S256) |
 
 ---
 
@@ -1015,6 +1181,10 @@ with PDSContainer() as pds:
 | `Seed` | `seed` | Fluent builder for declarative PDS state |
 | `World` | `world` | Frozen dataclass of materialized seed state |
 | `FirehoseSubscription` | `firehose` | WebSocket client for `subscribeRepos` with [CBOR](./glossary.md) decoding |
+| `OAuthClient` | `oauth` | OAuth [DPoP](./glossary.md) flow client with XRPC helpers |
+| `OAuthTokens` | `oauth` | Frozen dataclass for OAuth token responses |
+| `DPoPKey` | `oauth` | ES256 key pair for [DPoP](./glossary.md) proof generation |
+| `PKCEChallenge` | `oauth` | Frozen dataclass for PKCE S256 verifier/challenge pairs |
 | `RateLimitTarget` | `rate_limit` | Base class for rate limit exhaustion targets |
 | `CreateSession` | `rate_limit` | Concrete target for `createSession` rate limit |
 | `XrpcError` | `errors` | Structured exception for [XRPC](./glossary.md) failures |
@@ -1038,6 +1208,10 @@ from testcontainers_atproto import (
     Seed,
     World,
     FirehoseSubscription,
+    OAuthClient,
+    OAuthTokens,
+    DPoPKey,
+    PKCEChallenge,
     RateLimitTarget,
     CreateSession,
     XrpcError,
@@ -1061,4 +1235,4 @@ Frozen dataclass returned by `create_record` and `put_record`:
 
 ## Glossary
 
-See [glossary.md](./glossary.md) for definitions of PDS, DID, PLC, XRPC, Lexicon, NSID, JWT, CID, CBOR, MST, and other AT Protocol terms used throughout this guide.
+See [glossary.md](./glossary.md) for definitions of PDS, DID, PLC, XRPC, Lexicon, NSID, JWT, DPoP, PKCE, PAR, CID, CBOR, MST, and other AT Protocol terms used throughout this guide.
