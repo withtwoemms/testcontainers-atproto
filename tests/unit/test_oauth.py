@@ -3,14 +3,19 @@
 import base64
 import hashlib
 import json
+from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 
 from testcontainers_atproto.oauth import (
     DPoPKey,
+    OAuthClient,
     OAuthTokens,
     PKCEChallenge,
     _base64url,
+    _check_deps,
+    _dpop_aware_post,
     _rewrite_url,
 )
 
@@ -164,3 +169,206 @@ class TestRewriteUrl:
             "http://localhost:54321",
         )
         assert result == "http://localhost:54321/oauth/token?foo=bar"
+
+
+class TestRewriteUrlEdgeCases:
+    """Edge cases for _rewrite_url."""
+
+    def test_rewrite_preserves_fragment(self):
+        result = _rewrite_url(
+            "http://localhost:3000/path#frag",
+            "http://localhost:54321",
+        )
+        assert result == "http://localhost:54321/path#frag"
+
+    def test_rewrite_no_port_in_base(self):
+        """When base_url has no explicit port, urlparse.port is None."""
+        result = _rewrite_url(
+            "http://localhost:3000/path",
+            "http://example.com:8080",
+        )
+        assert result == "http://example.com:8080/path"
+
+
+class TestCheckDeps:
+    """_check_deps raises ImportError only when deps are missing."""
+
+    def test_check_deps_does_not_raise_when_installed(self):
+        # cryptography and PyJWT are installed in the test env
+        _check_deps()  # should not raise
+
+
+class TestDPoPAwarePost:
+    """_dpop_aware_post handles nonce retry logic."""
+
+    def test_dpop_aware_post_retries_on_nonce(self):
+        dpop_key = DPoPKey.generate()
+        call_count = 0
+
+        def handler(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return httpx.Response(
+                    400,
+                    json={"error": "use_dpop_nonce"},
+                    headers={"dpop-nonce": "server-nonce-42"},
+                )
+            return httpx.Response(200, json={"ok": True})
+
+        with patch("testcontainers_atproto.oauth.httpx.post", side_effect=handler):
+            resp, nonce = _dpop_aware_post(
+                "http://pds.test/oauth/token",
+                dpop_key,
+                "http://pds.test/oauth/token",
+                None,
+                data={"grant_type": "authorization_code"},
+            )
+        assert resp.status_code == 200
+        assert resp.json() == {"ok": True}
+        assert nonce == "server-nonce-42"
+        assert call_count == 2
+
+    def test_dpop_aware_post_no_retry_on_other_errors(self):
+        dpop_key = DPoPKey.generate()
+
+        def handler(*args, **kwargs):
+            return httpx.Response(
+                400,
+                json={"error": "invalid_grant"},
+                headers={},
+            )
+
+        with patch("testcontainers_atproto.oauth.httpx.post", side_effect=handler):
+            resp, nonce = _dpop_aware_post(
+                "http://pds.test/oauth/token",
+                dpop_key,
+                "http://pds.test/oauth/token",
+                None,
+                data={"grant_type": "authorization_code"},
+            )
+        assert resp.status_code == 400
+        assert resp.json()["error"] == "invalid_grant"
+
+    def test_dpop_aware_post_captures_nonce_from_header(self):
+        dpop_key = DPoPKey.generate()
+
+        def handler(*args, **kwargs):
+            return httpx.Response(
+                200,
+                json={"ok": True},
+                headers={"dpop-nonce": "fresh-nonce"},
+            )
+
+        with patch("testcontainers_atproto.oauth.httpx.post", side_effect=handler):
+            resp, nonce = _dpop_aware_post(
+                "http://pds.test/oauth/token",
+                dpop_key,
+                "http://pds.test/oauth/token",
+                None,
+                data={},
+            )
+        assert nonce == "fresh-nonce"
+
+
+class TestOAuthClientInit:
+    """OAuthClient constructor sets expected defaults."""
+
+    def _make_client(self, **kwargs):
+        defaults = {
+            "base_url": "http://localhost:54321",
+            "dpop_key": DPoPKey.generate(),
+        }
+        defaults.update(kwargs)
+        return OAuthClient(**defaults)
+
+    def test_default_client_id(self):
+        client = self._make_client()
+        assert "http://localhost" in client._client_id
+        assert "redirect_uri" in client._client_id
+
+    def test_custom_client_id(self):
+        client = self._make_client(client_id="http://my-app.test/client")
+        assert client._client_id == "http://my-app.test/client"
+
+    def test_default_scope(self):
+        client = self._make_client()
+        assert client._scope == "atproto transition:generic"
+
+    def test_custom_scope(self):
+        client = self._make_client(scope="atproto")
+        assert client._scope == "atproto"
+
+    def test_metadata_starts_none(self):
+        client = self._make_client()
+        assert client._metadata is None
+
+
+class TestOAuthClientXrpc:
+    """OAuthClient.xrpc_get / xrpc_post construct URLs and handle empty bodies."""
+
+    def _make_client(self):
+        dpop_key = DPoPKey.generate()
+        client = OAuthClient(
+            base_url="http://localhost:54321",
+            dpop_key=dpop_key,
+        )
+        # Pre-set metadata to avoid discover() call
+        client._metadata = {
+            "issuer": "http://localhost:3000",
+            "pushed_authorization_request_endpoint": "http://localhost:3000/oauth/par",
+            "authorization_endpoint": "http://localhost:3000/oauth/authorize",
+            "token_endpoint": "http://localhost:3000/oauth/token",
+            "revocation_endpoint": "http://localhost:3000/oauth/revoke",
+        }
+        return client
+
+    def test_xrpc_get_constructs_url_from_issuer(self):
+        client = self._make_client()
+        resp_mock = MagicMock()
+        resp_mock.status_code = 200
+        resp_mock.content = b'{"did": "did:plc:abc"}'
+        resp_mock.json.return_value = {"did": "did:plc:abc"}
+        resp_mock.headers = {}
+
+        with patch.object(client, "dpop_get", return_value=resp_mock) as mock_get:
+            result = client.xrpc_get("com.atproto.repo.describeRepo", "tok-123")
+            url_arg = mock_get.call_args[0][0]
+            assert url_arg == "http://localhost:3000/xrpc/com.atproto.repo.describeRepo"
+        assert result == {"did": "did:plc:abc"}
+
+    def test_xrpc_post_constructs_url_from_issuer(self):
+        client = self._make_client()
+        resp_mock = MagicMock()
+        resp_mock.status_code = 200
+        resp_mock.content = b'{"uri": "at://x/y/z", "cid": "bafy"}'
+        resp_mock.json.return_value = {"uri": "at://x/y/z", "cid": "bafy"}
+        resp_mock.headers = {}
+
+        with patch.object(client, "dpop_post", return_value=resp_mock) as mock_post:
+            result = client.xrpc_post("com.atproto.repo.createRecord", "tok-123", data={"text": "hi"})
+            url_arg = mock_post.call_args[0][0]
+            assert url_arg == "http://localhost:3000/xrpc/com.atproto.repo.createRecord"
+        assert result == {"uri": "at://x/y/z", "cid": "bafy"}
+
+    def test_xrpc_get_returns_empty_dict_for_no_content(self):
+        client = self._make_client()
+        resp_mock = MagicMock()
+        resp_mock.status_code = 200
+        resp_mock.content = b""
+        resp_mock.headers = {}
+
+        with patch.object(client, "dpop_get", return_value=resp_mock):
+            result = client.xrpc_get("com.atproto.server.requestEmailConfirmation", "tok-123")
+        assert result == {}
+
+    def test_xrpc_post_returns_empty_dict_for_no_content(self):
+        client = self._make_client()
+        resp_mock = MagicMock()
+        resp_mock.status_code = 200
+        resp_mock.content = b""
+        resp_mock.headers = {}
+
+        with patch.object(client, "dpop_post", return_value=resp_mock):
+            result = client.xrpc_post("com.atproto.server.requestEmailConfirmation", "tok-123")
+        assert result == {}

@@ -2,7 +2,7 @@
 
 import pytest
 
-from testcontainers_atproto import PDSContainer
+from testcontainers_atproto import Account, PDSContainer
 
 
 class TestEmailModeParameter:
@@ -83,3 +83,78 @@ class TestNetworkOwnership:
         pds = PDSContainer.__new__(PDSContainer)
         pds._postgres = None
         assert pds._postgres is None
+
+
+class TestBypassHeaders:
+    """PDSContainer._bypass_headers returns correct headers."""
+
+    def test_bypass_headers_empty_when_no_rate_limits(self):
+        pds = PDSContainer.__new__(PDSContainer)
+        pds._bypass_key = None
+        assert pds._bypass_headers() == {}
+
+    def test_bypass_headers_populated_when_rate_limits(self):
+        pds = PDSContainer.__new__(PDSContainer)
+        pds._bypass_key = "abc123"
+        assert pds._bypass_headers() == {"x-ratelimit-bypass": "abc123"}
+
+
+class TestExhaustRateLimitErrors:
+    """exhaust_rate_limit_budget raises on misconfiguration."""
+
+    def test_exhaust_raises_when_rate_limiting_off(self):
+        pds = PDSContainer.__new__(PDSContainer)
+        pds._rate_limits = False
+
+        class DummyTarget:
+            nsid = "com.atproto.server.createSession"
+            def __call__(self, base_url):
+                pass
+
+        with pytest.raises(RuntimeError, match="Rate limiting is not enabled"):
+            pds.exhaust_rate_limit_budget(DummyTarget())
+
+    def test_exhaust_raises_for_unknown_nsid_without_threshold(self):
+        pds = PDSContainer.__new__(PDSContainer)
+        pds._rate_limits = True
+
+        class UnknownTarget:
+            nsid = "com.example.unknownEndpoint"
+            def __call__(self, base_url):
+                pass
+
+        with pytest.raises(ValueError, match="No rate limit mapping"):
+            pds.exhaust_rate_limit_budget(UnknownTarget())
+
+
+class TestOAuthAuthenticateErrors:
+    """oauth_authenticate raises when password is missing."""
+
+    def test_oauth_authenticate_raises_without_password(self):
+        pds = PDSContainer.__new__(PDSContainer)
+        account = Account(
+            pds=pds,
+            did="did:plc:abc123",
+            handle="alice.test",
+            access_jwt="tok",
+            refresh_jwt="tok",
+            password="",
+        )
+        with pytest.raises(ValueError, match="Account has no password stored"):
+            pds.oauth_authenticate(account)
+
+
+class TestRateLimitConfig:
+    """bypass_key property reflects rate_limits constructor flag."""
+
+    def test_bypass_key_is_none_when_rate_limits_off(self):
+        pds = PDSContainer.__new__(PDSContainer)
+        pds._bypass_key = None
+        assert pds.bypass_key is None
+
+    def test_bypass_key_is_set_when_rate_limits_on(self):
+        pds = PDSContainer.__new__(PDSContainer)
+        pds._bypass_key = "deadbeef1234"
+        assert pds.bypass_key == "deadbeef1234"
+        # Verify it looks like a hex string
+        int(pds.bypass_key, 16)
