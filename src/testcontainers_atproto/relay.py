@@ -47,7 +47,7 @@ class RelayContainer(DockerContainer):
             image,
             _wait_strategy=(
                 HttpWaitStrategy(_RELAY_PORT, "/xrpc/_health")
-                .for_response_predicate(lambda body: "version" in body)
+                .for_response_predicate(lambda body: "ok" in body)
                 .with_startup_timeout(60)
                 .with_poll_interval(0.5)
             ),
@@ -155,7 +155,7 @@ class RelayContainer(DockerContainer):
     # --- Health ---
 
     def health(self) -> dict:
-        """Check relay health. Returns ``{"version": "..."}``."""
+        """Check relay health. Returns ``{"status": "ok"}``."""
         resp = httpx.get(f"{self.base_url}/xrpc/_health", timeout=10.0)
         resp.raise_for_status()
         return resp.json()

@@ -24,8 +24,8 @@ class TestPdsPairFixture:
 
     def test_create_accounts_on_both(self, pds_pair):
         pds_a, pds_b = pds_pair
-        alice = pds_a.create_account("alice.test")
-        bob = pds_b.create_account("bob.test")
+        alice = pds_a.create_account("fed-cr-a.test")
+        bob = pds_b.create_account("fed-cr-b.test")
         assert alice.did.startswith("did:plc:")
         assert bob.did.startswith("did:plc:")
         assert alice.did != bob.did
@@ -47,18 +47,18 @@ class TestCrossPdsResolution:
     def test_each_pds_resolves_own_handles(self, pds_pair):
         """Each PDS resolves handles registered in its local database."""
         pds_a, pds_b = pds_pair
-        alice = pds_a.create_account("alice.test")
-        bob = pds_b.create_account("bob.test")
+        alice = pds_a.create_account("fed-res-a.test")
+        bob = pds_b.create_account("fed-res-b.test")
 
         result_a = pds_a.xrpc_get(
             "com.atproto.identity.resolveHandle",
-            params={"handle": "alice.test"},
+            params={"handle": "fed-res-a.test"},
         )
         assert result_a["did"] == alice.did
 
         result_b = pds_b.xrpc_get(
             "com.atproto.identity.resolveHandle",
-            params={"handle": "bob.test"},
+            params={"handle": "fed-res-b.test"},
         )
         assert result_b["did"] == bob.did
 
@@ -68,8 +68,8 @@ class TestCrossPdsResolution:
         from testcontainers_atproto.container import _PLC_PORT
 
         pds_a, pds_b = pds_pair
-        alice = pds_a.create_account("alice.test")
-        bob = pds_b.create_account("bob.test")
+        alice = pds_a.create_account("fed-plc-a.test")
+        bob = pds_b.create_account("fed-plc-b.test")
 
         # Both PDS instances share the same PLC — query it via the
         # internal PLC URL exposed through the PDS environment.
@@ -85,14 +85,14 @@ class TestCrossPdsResolution:
         resp_a.raise_for_status()
         doc_a = resp_a.json()
         assert doc_a["id"] == alice.did
-        assert any("alice.test" in aka for aka in doc_a.get("alsoKnownAs", []))
+        assert any("fed-plc-a.test" in aka for aka in doc_a.get("alsoKnownAs", []))
 
         # Resolve bob's DID from PLC
         resp_b = httpx.get(f"{plc_url}/{bob.did}", timeout=10.0)
         resp_b.raise_for_status()
         doc_b = resp_b.json()
         assert doc_b["id"] == bob.did
-        assert any("bob.test" in aka for aka in doc_b.get("alsoKnownAs", []))
+        assert any("fed-plc-b.test" in aka for aka in doc_b.get("alsoKnownAs", []))
 
     def test_did_documents_point_to_correct_pds(self, pds_pair):
         """DID documents registered via different PDS instances contain
@@ -101,8 +101,8 @@ class TestCrossPdsResolution:
         from testcontainers_atproto.container import _PLC_PORT
 
         pds_a, pds_b = pds_pair
-        alice = pds_a.create_account("alice.test")
-        bob = pds_b.create_account("bob.test")
+        alice = pds_a.create_account("fed-doc-a.test")
+        bob = pds_b.create_account("fed-doc-b.test")
 
         plc = pds_a._shared_plc
         plc_host = plc.get_container_host_ip()
@@ -126,7 +126,7 @@ class TestCrossPdsResolution:
         """Records created on PDS-A are fetchable using the DID
         (the canonical cross-PDS identifier)."""
         pds_a, pds_b = pds_pair
-        alice = pds_a.create_account("alice.test")
+        alice = pds_a.create_account("fed-xpds.test")
 
         ref = alice.create_record("app.bsky.feed.post", {
             "$type": "app.bsky.feed.post",
@@ -158,15 +158,15 @@ class TestPdsPairWithSeed:
         pds_a, pds_b = pds_pair
         world_a = (
             Seed(pds_a)
-            .account("alice.test")
+            .account("fed-sd-a.test")
                 .post("Hello from PDS-A")
             .apply()
         )
         world_b = (
             Seed(pds_b)
-            .account("bob.test")
+            .account("fed-sd-b.test")
                 .post("Hello from PDS-B")
             .apply()
         )
-        assert len(world_a.records["alice.test"]) == 1
-        assert len(world_b.records["bob.test"]) == 1
+        assert len(world_a.records["fed-sd-a.test"]) == 1
+        assert len(world_b.records["fed-sd-b.test"]) == 1
