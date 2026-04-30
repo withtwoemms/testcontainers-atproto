@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0]
+
+### Added
+
+- `RelayContainer` — ephemeral AT Protocol relay (formerly BGS) for testing firehose aggregation across multiple PDS instances, wrapping a patched `indigo` relay image with Docker-internal networking support
+- `RelayContainer.request_crawl(hostname)` — request the relay to crawl a host via `com.atproto.sync.requestCrawl` with admin auth
+- `RelayContainer.crawl_pds(pds)` — convenience method to request crawl using a PDS's Docker network hostname
+- `RelayContainer.list_hosts()` — list hosts known to the relay via `com.atproto.sync.listHosts`
+- `RelayContainer.subscribe(cursor)` — subscribe to the relay's aggregated firehose, returning a `FirehoseSubscription`
+- `RelayContainer.health()` — relay health check returning version info
+- `RelayContainer.base_url`, `admin_password`, `host`, `port` properties
+- `pds_relay` pytest fixture — two PDS instances and a relay on a shared Docker network with a shared PLC directory; the relay crawls both PDS instances on startup
+- `relay_image` session-scoped fixture (override via `ATP_RELAY_IMAGE` env var)
+- `RelayContainer` added to top-level package exports
+- Integration tests: relay health check, crawl and list hosts, firehose event propagation from a single PDS, firehose aggregation from both PDS instances
+- Unit tests: admin password generation, custom admin password, method existence checks
+
 ## [0.9.0]
 
 ### Added
@@ -206,7 +223,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions `publish` workflow (main → Test PyPI, tags → Test+Prod PyPI + GitHub Release with changelog-extracted notes)
 
 <!-- Links -->
-[Unreleased]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.9.0...HEAD
+[Unreleased]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.10.0...HEAD
+[0.10.0]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.9.0...0.10.0
 [0.9.0]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.8.0...0.9.0
 [0.8.0]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.7.0...0.8.0
 [0.7.0]: https://github.com/withtwoemms/testcontainers-atproto/compare/0.6.0...0.7.0
