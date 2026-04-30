@@ -3,7 +3,7 @@
 import httpx
 import pytest
 
-from testcontainers_atproto import Account, PDSContainer, XrpcError
+from testcontainers_atproto import Account, XrpcError
 
 pytestmark = pytest.mark.requires_docker
 
@@ -81,40 +81,35 @@ class TestCreateAccount:
 class TestCreateAccountRealPLC:
     """Account creation with Postgres-backed PLC directory."""
 
-    def test_create_account_with_real_plc(self):
-        with PDSContainer(plc_mode="real") as pds:
-            account = pds.create_account("alice.test")
-            assert account.did.startswith("did:plc:")
-            assert account.handle == "alice.test"
-            assert account.access_jwt
+    def test_create_account_with_real_plc(self, pds_real_plc_session):
+        account = pds_real_plc_session.create_account("plc-acct.test")
+        assert account.did.startswith("did:plc:")
+        assert account.handle == "plc-acct.test"
+        assert account.access_jwt
 
 
 class TestCreateAccountAdversarial:
     """Edge cases and error conditions for create_account."""
 
-    def test_duplicate_handle_raises(self):
+    def test_duplicate_handle_raises(self, pds_module):
         """Creating two accounts with the same handle should fail."""
-        with PDSContainer() as pds:
-            pds.create_account("alice.test")
-            with pytest.raises(XrpcError) as exc_info:
-                pds.create_account("alice.test")
-            assert exc_info.value.status_code == 400
+        pds_module.create_account("adv-dup.test")
+        with pytest.raises(XrpcError) as exc_info:
+            pds_module.create_account("adv-dup.test")
+        assert exc_info.value.status_code == 400
 
-    def test_invalid_handle_domain_raises(self):
+    def test_invalid_handle_domain_raises(self, pds_module):
         """Handles not ending in .test are rejected by the PDS."""
-        with PDSContainer() as pds:
-            with pytest.raises(XrpcError):
-                pds.create_account("alice.invalid")
+        with pytest.raises(XrpcError):
+            pds_module.create_account("adv-bad.invalid")
 
-    def test_empty_handle_raises(self):
+    def test_empty_handle_raises(self, pds_module):
         """An empty handle string is rejected."""
-        with PDSContainer() as pds:
-            with pytest.raises(XrpcError):
-                pds.create_account("")
+        with pytest.raises(XrpcError):
+            pds_module.create_account("")
 
-    def test_duplicate_email_raises(self):
+    def test_duplicate_email_raises(self, pds_module):
         """Two accounts with the same email should fail."""
-        with PDSContainer() as pds:
-            pds.create_account("alice.test", email="shared@test.invalid")
-            with pytest.raises(XrpcError):
-                pds.create_account("bob.test", email="shared@test.invalid")
+        pds_module.create_account("adv-em-a.test", email="adv-shared@test.invalid")
+        with pytest.raises(XrpcError):
+            pds_module.create_account("adv-em-b.test", email="adv-shared@test.invalid")

@@ -55,8 +55,9 @@ class TestPDSContainerLifecycle:
 class TestPDSContainerRealPLC:
     """Container boots with a Postgres-backed PLC directory."""
 
-    def test_real_plc_mode_boots(self):
-        with PDSContainer(plc_mode="real") as pds:
-            resp = httpx.get(f"{pds.base_url}/xrpc/_health", timeout=5.0)
-            assert resp.status_code == 200
-            assert "version" in resp.json()
+    def test_real_plc_mode_boots(self, pds_real_plc_session):
+        resp = httpx.get(
+            f"{pds_real_plc_session.base_url}/xrpc/_health", timeout=5.0,
+        )
+        assert resp.status_code == 200
+        assert "version" in resp.json()
