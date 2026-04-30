@@ -224,6 +224,59 @@ def test_cross_pds_resolution(pds_pair):
 
 The `pds_pair` fixture creates a shared Docker network and PLC directory. Handle resolution is local to each PDS; cross-PDS discovery uses DIDs resolved through the shared PLC.
 
+### Relay testing
+
+Test relay aggregation with two PDS instances feeding a single relay:
+
+```python
+def test_relay_aggregates_events(pds_relay):
+    pds_a, pds_b, relay = pds_relay
+
+    alice = pds_a.create_account("alice.test")
+    bob = pds_b.create_account("bob.test")
+
+    alice.create_record("app.bsky.feed.post", {
+        "$type": "app.bsky.feed.post",
+        "text": "hello from PDS-A",
+        "createdAt": "2026-01-01T00:00:00Z",
+    })
+    bob.create_record("app.bsky.feed.post", {
+        "$type": "app.bsky.feed.post",
+        "text": "hello from PDS-B",
+        "createdAt": "2026-01-01T00:00:00Z",
+    })
+
+    import time
+    time.sleep(2)
+
+    sub = relay.subscribe()
+    events = sub.collect(count=30, timeout=10.0)
+    commits = [
+        e for e in events
+        if e["header"].get("t") == "#commit" and e["body"].get("ops")
+    ]
+    repos = {c["body"]["repo"] for c in commits}
+    assert alice.did in repos
+    assert bob.did in repos
+```
+
+The `pds_relay` fixture creates two PDS instances and a relay on a shared Docker network with a shared PLC directory. The relay crawls both PDS instances on startup, so events from either PDS appear on the relay's aggregated firehose.
+
+Relay admin operations are also available:
+
+```python
+def test_relay_admin(pds_relay):
+    pds_a, _pds_b, relay = pds_relay
+
+    # Health check
+    assert "version" in relay.health()
+
+    # List crawled hosts
+    hosts = relay.list_hosts()
+    hostnames = [h.get("hostname", "") for h in hosts]
+    assert any("pds-a" in h for h in hostnames)
+```
+
 ### Rate limit simulation
 
 Test your client's 429-handling and backoff logic against real PDS rate limiting:
@@ -431,7 +484,9 @@ After installing the package, these fixtures are available automatically via the
 | `pds` | function | Fresh PDS instance per test |
 | `pds_module` | module | Shared PDS instance within a test module |
 | `pds_pair` | function | Two PDS instances for federation testing |
+| `pds_relay` | function | Two PDS instances + relay for firehose aggregation testing |
 | `pds_image` | session | PDS image tag (override via `ATP_PDS_IMAGE` env var) |
+| `relay_image` | session | Relay image tag (override via `ATP_RELAY_IMAGE` env var) |
 
 ```python
 def test_create_account(pds):
