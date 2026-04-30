@@ -15,6 +15,7 @@ from testcontainers_atproto.oauth import (
 )
 from testcontainers_atproto.rate_limit import CreateSession, RateLimitTarget
 from testcontainers_atproto.ref import RecordRef
+from testcontainers_atproto.relay import RelayContainer
 from testcontainers_atproto.seed import Seed, seed_from_dict
 from testcontainers_atproto.world import World
 
@@ -31,6 +32,7 @@ __all__ = [
     "PKCEChallenge",
     "RateLimitTarget",
     "RecordRef",
+    "RelayContainer",
     "Seed",
     "World",
     "seed_from_dict",

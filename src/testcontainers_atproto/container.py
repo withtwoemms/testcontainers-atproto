@@ -154,10 +154,14 @@ class PDSContainer(DockerContainer):
 
         # --- PDS ---
 
+        # Use port 80 in federation mode so that a relay can reach this PDS
+        # at http://<hostname> (the HTTP default port) without needing TLS.
+        self._port = 80 if _network is not None else _INTERNAL_PORT
+
         super().__init__(
             image,
             _wait_strategy=(
-                HttpWaitStrategy(_INTERNAL_PORT, "/xrpc/_health")
+                HttpWaitStrategy(self._port, "/xrpc/_health")
                 .for_response_predicate(lambda body: "version" in body)
                 .with_startup_timeout(60)
                 .with_poll_interval(0.5)
@@ -166,10 +170,10 @@ class PDSContainer(DockerContainer):
 
         self.with_network(self._plc_network)
         self.with_network_aliases(self._hostname)
-        self.with_exposed_ports(_INTERNAL_PORT)
+        self.with_exposed_ports(self._port)
         self.with_kwargs(tmpfs={"/pds": ""})
         self.with_env("PDS_HOSTNAME", self._hostname)
-        self.with_env("PDS_PORT", str(_INTERNAL_PORT))
+        self.with_env("PDS_PORT", str(self._port))
         self.with_env("PDS_DEV_MODE", "true")
         if email_mode == "capture":
             self.with_env(
@@ -234,8 +238,8 @@ class PDSContainer(DockerContainer):
 
     @property
     def port(self) -> int:
-        """Mapped port for the PDS (3000 inside, dynamic outside)."""
-        return int(self.get_exposed_port(_INTERNAL_PORT))
+        """Mapped port for the PDS (dynamic outside)."""
+        return int(self.get_exposed_port(self._port))
 
     @property
     def email_mode(self) -> str:
