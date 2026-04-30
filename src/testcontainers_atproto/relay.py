@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from testcontainers_atproto.container import PDSContainer
     from testcontainers_atproto.firehose import FirehoseSubscription
 
-_RELAY_IMAGE = "withtwoemms/indigo:relay-c3f7a8f7dc660cc0716517da6f04db714a845563"
+_RELAY_IMAGE = "withtwoemms/indigo:relay-8c6cc1a856bc01593a627800008ef5522a099f73"
 _RELAY_PORT = 2470
 
 
