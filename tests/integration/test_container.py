@@ -11,26 +11,22 @@ pytestmark = pytest.mark.requires_docker
 class TestPDSContainerLifecycle:
     """Container starts, responds to health checks, and stops cleanly."""
 
-    def test_container_boots_and_is_healthy(self):
-        with PDSContainer() as pds:
-            resp = httpx.get(f"{pds.base_url}/xrpc/_health", timeout=5.0)
-            assert resp.status_code == 200
-            assert "version" in resp.json()
+    def test_container_boots_and_is_healthy(self, pds_module):
+        resp = httpx.get(f"{pds_module.base_url}/xrpc/_health", timeout=5.0)
+        assert resp.status_code == 200
+        assert "version" in resp.json()
 
-    def test_base_url_is_reachable(self):
-        with PDSContainer() as pds:
-            assert pds.base_url.startswith("http://")
-            resp = httpx.get(f"{pds.base_url}/xrpc/_health", timeout=5.0)
-            resp.raise_for_status()
+    def test_base_url_is_reachable(self, pds_module):
+        assert pds_module.base_url.startswith("http://")
+        resp = httpx.get(f"{pds_module.base_url}/xrpc/_health", timeout=5.0)
+        resp.raise_for_status()
 
-    def test_port_is_dynamic_not_3000(self):
-        with PDSContainer() as pds:
-            assert isinstance(pds.port, int)
-            assert pds.port != 3000
+    def test_port_is_dynamic_not_3000(self, pds_module):
+        assert isinstance(pds_module.port, int)
+        assert pds_module.port != 3000
 
-    def test_admin_password_auto_generated(self):
-        with PDSContainer() as pds:
-            assert len(pds.admin_password) == 32  # token_hex(16) = 32 hex chars
+    def test_admin_password_auto_generated(self, pds_module):
+        assert len(pds_module.admin_password) == 32  # token_hex(16) = 32 hex chars
 
     def test_custom_admin_password(self):
         with PDSContainer(admin_password="my-secret") as pds:
@@ -48,13 +44,12 @@ class TestPDSContainerLifecycle:
         with pytest.raises(httpx.ConnectError):
             httpx.get(url, timeout=2.0)
 
-    def test_unknown_xrpc_method_returns_error(self):
-        with PDSContainer() as pds:
-            resp = httpx.get(
-                f"{pds.base_url}/xrpc/com.atproto.nonexistent.method",
-                timeout=5.0,
-            )
-            assert resp.status_code in (400, 404, 501)
+    def test_unknown_xrpc_method_returns_error(self, pds_module):
+        resp = httpx.get(
+            f"{pds_module.base_url}/xrpc/com.atproto.nonexistent.method",
+            timeout=5.0,
+        )
+        assert resp.status_code in (400, 404, 501)
 
 
 class TestPDSContainerRealPLC:
