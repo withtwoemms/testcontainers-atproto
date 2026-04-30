@@ -29,6 +29,8 @@ testcontainers-atproto is a testing infrastructure module for anyone building on
 | v0.6.0 | Account Lifecycle + Admin Operations | Complete |
 | v0.7.0 | Repo Sync | Complete |
 | v0.8.0 | Federation + Rate Limiting | Complete |
+| v0.9.0 | OAuth DPoP Authentication | Complete |
+| v0.10.0 | Relay Container | Complete |
 
 ---
 
@@ -245,6 +247,56 @@ The firehose (v0.3.0) provides incremental event notification. Repo sync provide
 
 ---
 
+## v0.9.0 — OAuth DPoP Authentication (Complete)
+
+**Theme:** End-to-end OAuth testing with DPoP-bound tokens.
+
+AT Protocol uses OAuth with DPoP (Demonstration of Proof-of-Possession) for modern authentication. This release provides a full OAuth flow client so tests can exercise PAR, programmatic sign-in/consent, token exchange, refresh, and revocation against a real PDS — no mocking required.
+
+- [x] `OAuthClient` — flow client handling metadata discovery, PAR, authorization, token exchange, refresh, revocation, and DPoP-authenticated XRPC calls
+- [x] `DPoPKey` — ES256 key pair with proof JWT generation and access token hashing
+- [x] `PKCEChallenge` — S256 verifier/challenge pairs (stdlib only)
+- [x] `OAuthTokens` — frozen dataclass for token responses
+- [x] `PDSContainer.oauth_client()` — factory method for `OAuthClient` bound to the container
+- [x] `PDSContainer.oauth_authenticate(account)` — full flow in one call, returns `(OAuthClient, OAuthTokens)`
+- [x] `Account.password` read-only property
+- [x] `oauth` optional dependency extra (`cryptography>=41.0`, `PyJWT>=2.8`)
+- [x] Integration tests: full flow, step-by-step flow, DPoP XRPC calls, token refresh, token revocation
+- [x] Unit tests: PKCE generation, DPoP key/proof structure, token parsing
+
+**Outcomes:**
+- OAuth client implementations can be tested end-to-end against real PDS infrastructure
+- DPoP proof generation and nonce negotiation are exercised without mocking
+- Token lifecycle (exchange, refresh, revocation) is fully testable
+
+---
+
+## v0.10.0 — Relay Container (Complete)
+
+**Theme:** Firehose aggregation testing across multiple PDS instances.
+
+Individual PDS firehose testing (v0.3.0) covers single-server event streams. Relays aggregate firehose streams from multiple PDS instances into a unified stream consumed by AppViews and indexers. This release adds a `RelayContainer` that wraps a patched `indigo` relay image, enabling end-to-end relay testing in Docker.
+
+- [x] `RelayContainer` — ephemeral relay wrapping a patched `indigo` relay image with `RELAY_SKIP_HOST_CHECK` support for Docker-internal networking
+- [x] `request_crawl(hostname)` — request the relay to crawl a PDS via `com.atproto.sync.requestCrawl` with admin auth
+- [x] `crawl_pds(pds)` — convenience method using a PDS's Docker network hostname
+- [x] `list_hosts()` — list known hosts via `com.atproto.sync.listHosts`
+- [x] `subscribe(cursor)` — subscribe to the aggregated firehose, returning a `FirehoseSubscription`
+- [x] `health()` — relay health check
+- [x] `base_url`, `admin_password`, `host`, `port` properties
+- [x] `pds_relay` fixture — two PDS instances and a relay on a shared network with shared PLC; relay crawls both PDS instances on startup
+- [x] `relay_image` session fixture (override via `ATP_RELAY_IMAGE` env var)
+- [x] Integration tests: health, crawl/list hosts, single-PDS event propagation, multi-PDS aggregation
+- [x] Unit tests: admin password generation, method existence checks
+
+**Outcomes:**
+- AppView and indexer developers can test against a real relay aggregating multiple PDS streams
+- Relay crawl management is testable via `request_crawl` and `list_hosts`
+- The aggregated firehose can be subscribed to and asserted against using the same `FirehoseSubscription` API from v0.3.0
+- The `pds_relay` fixture provides a ready-to-use federated topology with zero boilerplate
+
+---
+
 ## Future Vision
 
 | Feature | Notes |
@@ -252,7 +304,7 @@ The firehose (v0.3.0) provides incremental event notification. Repo sync provide
 | `did:web` account support | Skip PLC round-trip for faster container boot |
 | Labeler testing | Ephemeral labeler service alongside PDS |
 | Feed generator harness | Test custom feed algorithms against a seeded PDS |
-| Relay / BGS container | Multi-relay topologies for indexer stress tests |
+| Multi-relay topologies | Multiple relays for indexer stress and failover tests |
 | Lexicon scaffolding | Generate test fixtures from Lexicon schema definitions |
 | Performance profiling | Container boot benchmarks across PDS versions |
 
