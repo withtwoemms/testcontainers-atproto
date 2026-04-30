@@ -24,6 +24,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Integration tests: relay health check, crawl and list hosts, firehose event propagation from a single PDS, firehose aggregation from both PDS instances
 - Unit tests: admin password generation, custom admin password, method existence checks
 
+### Changed
+
+- Integration test suite now uses session-scoped container fixtures, reducing container startups from 81 to 11 and cutting wall time from ~19 minutes to ~8 minutes
+- Added `pds_session`, `pds_email_session`, and `pds_real_plc_session` session-scoped fixtures to `tests/integration/conftest.py`; `pds_module` now delegates to `pds_session`
+- Converted all integration test files to use unique per-test handles, enabling safe container sharing across modules
+
 ## [0.9.0]
 
 ### Added
